@@ -1,0 +1,812 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Phiếu Khảo Sát Thiết Kế Kiến Trúc & Nội Thất</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; background-color: #f3f4f6; }
+        .section-header { border-bottom: 2px solid #e5e7eb; padding-bottom: 0.5rem; margin-bottom: 1.5rem; }
+        .checkbox-card:checked + div { border-color: #2563eb; background-color: #eff6ff; }
+        .checkbox-card { display: none; }
+        .img-overlay { transition: all 0.3s; }
+        .style-card:hover .img-overlay { transform: scale(1.05); }
+        
+        /* Loading Animation */
+        .loader {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 20px; /* Smaller loader for inline button */
+            height: 20px;
+            animation: spin 1s linear infinite;
+            display: inline-block;
+            vertical-align: middle;
+            margin-right: 5px;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        @media print {
+            body { background-color: white; }
+            .no-print { display: none !important; }
+            .page-break { page-break-before: always; }
+            .container { max-width: 100% !important; padding: 0 !important; box-shadow: none !important; }
+            input[type="text"], textarea { border: none; border-bottom: 1px dotted #ccc; background: transparent; }
+            /* Hide empty AI results when printing if not generated */
+            #ai-result:empty, #quick-fengshui-result:empty { display: none; }
+        }
+    </style>
+</head>
+<body class="py-8">
+
+    <div class="container mx-auto max-w-5xl bg-white p-8 shadow-xl rounded-lg">
+        
+        <!-- Header Updated -->
+        <div class="flex flex-col md:flex-row justify-between items-start md:items-end mb-8 border-b-4 border-gray-800 pb-4 gap-4">
+            <div class="flex items-center gap-4">
+                <!-- Logo & Company Name Block -->
+                <div class="flex items-center gap-3">
+                    <!-- Logo Image (Đã thay đổi sang file ảnh thật) -->
+                    <img src="image_612a79.png" alt="Logo Hữu Nhân Const" class="w-28 md:w-32 h-auto object-contain">
+
+                    <!-- Tên công ty -->
+                    <div class="flex flex-col">
+                        <h3 class="text-sm md:text-base font-extrabold text-blue-900 uppercase leading-snug tracking-tight">
+                            CÔNG TY TNHH MTV XD<br>THƯƠNG MẠI HỮU NHÂN
+                        </h3>
+                        <span class="text-xs font-semibold text-gray-500 tracking-widest mt-1 border-t border-gray-300 pt-1 inline-block w-max">
+                            HUU NHAN CONSTRUCTION
+                        </span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="text-right text-sm text-gray-600 w-full md:w-auto space-y-2 mt-4 md:mt-0">
+                <div class="flex items-center justify-between md:justify-end gap-3">
+                    <span class="font-bold text-gray-800">MÃ DỰ ÁN:</span>
+                    <input type="text" class="border-b border-dotted border-gray-400 focus:border-blue-600 outline-none text-right w-40 bg-transparent font-bold" placeholder="..........................">
+                </div>
+                <div class="flex items-center justify-between md:justify-end gap-3">
+                    <span>Ngày khảo sát:</span>
+                    <input type="date" class="border-b border-dotted border-gray-400 focus:border-blue-600 outline-none text-right w-40 bg-transparent text-gray-500 font-mono">
+                </div>
+                <div class="flex items-center justify-between md:justify-end gap-3">
+                    <span>Người phụ trách:</span>
+                    <input type="text" class="border-b border-dotted border-gray-400 focus:border-blue-600 outline-none text-right w-40 bg-transparent" placeholder="..........................">
+                </div>
+                 <div class="flex items-center justify-between md:justify-end gap-3 text-blue-600">
+                    <span class="font-semibold"><i class="fas fa-phone-alt mr-1"></i>Hotline KTS:</span>
+                    <input type="text" class="border-b border-dotted border-blue-300 focus:border-blue-600 outline-none text-right w-40 bg-transparent font-semibold" value="09xx.xxx.xxx">
+                </div>
+            </div>
+        </div>
+
+        <!-- I. Thông tin khách hàng -->
+        <section class="mb-10">
+            <div class="section-header flex items-center gap-2">
+                <i class="fas fa-user-circle text-2xl text-blue-600"></i>
+                <h3 class="text-xl font-bold text-gray-800">I. THÔNG TIN KHÁCH HÀNG</h3>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700">Họ và tên chủ nhà</label>
+                    <input type="text" id="clientName" class="w-full mt-1 p-2 border rounded bg-gray-50" placeholder="Nhập họ tên...">
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700">Số điện thoại / Email</label>
+                    <input type="text" class="w-full mt-1 p-2 border rounded bg-gray-50" placeholder="Liên hệ...">
+                </div>
+                <div class="md:col-span-2">
+                    <label class="block text-sm font-semibold text-gray-700">Năm sinh (Để xem phong thủy)</label>
+                    <div class="flex gap-4 mt-1">
+                        <div class="w-1/2">
+                            <span class="text-xs text-gray-500 mb-1 block">Nam chủ nhà</span>
+                            <input type="text" id="birthYearMale" class="w-full p-2 border rounded bg-gray-50" placeholder="Năm sinh (VD: 1985)">
+                        </div>
+                        <div class="w-1/2">
+                            <span class="text-xs text-gray-500 mb-1 block">Nữ chủ nhà</span>
+                            <input type="text" id="birthYearFemale" class="w-full p-2 border rounded bg-gray-50" placeholder="Năm sinh (VD: 1990)">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- II. Thông tin dự án -->
+        <section class="mb-10">
+            <div class="section-header flex items-center gap-2">
+                <i class="fas fa-home text-2xl text-blue-600"></i>
+                <h3 class="text-xl font-bold text-gray-800">II. THÔNG TIN DỰ ÁN</h3>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="md:col-span-2">
+                    <label class="block text-sm font-semibold text-gray-700">Địa chỉ dự án</label>
+                    <input type="text" class="w-full mt-1 p-2 border rounded bg-gray-50" placeholder="Số nhà, đường, phường, quận...">
+                </div>
+                
+                <!-- Cột trái: Loại hình & Số tầng & Hiện trạng & Pháp lý -->
+                <div class="space-y-4">
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700">Loại hình</label>
+                            <select id="houseType" class="w-full mt-1 p-2 border rounded bg-gray-50">
+                                <option value="Chung cư">Chung cư</option>
+                                <option value="Nhà phố">Nhà phố</option>
+                                <option value="Biệt thự">Biệt thự</option>
+                                <option value="Văn phòng">Văn phòng</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700">Số tầng</label>
+                            <input type="text" id="houseFloors" class="w-full mt-1 p-2 border rounded bg-gray-50" placeholder="VD: 3 tầng">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700">Hiện trạng đất</label>
+                            <select id="currentStatus" class="w-full mt-1 p-2 border rounded bg-gray-50">
+                                <option value="Đất trống">Đất trống</option>
+                                <option value="Có nhà cũ">Có nhà cũ</option>
+                                <option value="Đang ở">Đang ở</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700">Đặc điểm pháp lý</label>
+                            <select id="legalStatus" class="w-full mt-1 p-2 border rounded bg-gray-50">
+                                <option value="Sổ đỏ/Sổ hồng">Sổ đỏ/Sổ hồng</option>
+                                <option value="HĐMB Dự án">HĐMB Dự án</option>
+                                <option value="Đang chờ sổ">Đang chờ sổ</option>
+                                <option value="Giấy tay/Vi bằng">Giấy tay/Vi bằng</option>
+                                <option value="Khác">Khác</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Cột phải: Diện tích Đất & Sàn -->
+                <div class="space-y-4">
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700">DT Đất (m2)</label>
+                            <input type="text" id="landArea" class="w-full mt-1 p-2 border rounded bg-gray-50" placeholder="Diện tích đất...">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700">DT Sàn (m2)</label>
+                            <input type="text" id="floorArea" class="w-full mt-1 p-2 border rounded bg-gray-50" placeholder="Tổng sàn SD...">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Hàng dưới cùng: Thành viên -->
+                <div class="md:col-span-2">
+                    <label class="block text-sm font-semibold text-gray-700">Thành viên gia đình</label>
+                    <input type="text" id="familyMembers" class="w-full mt-1 p-2 border rounded bg-gray-50" placeholder="VD: 2 Người lớn, 1 bé trai 5 tuổi...">
+                </div>
+            </div>
+        </section>
+
+        <!-- III. Ngân sách -->
+        <section class="mb-10 bg-blue-50 p-6 rounded-lg">
+            <div class="section-header flex items-center gap-2 border-blue-200">
+                <i class="fas fa-coins text-2xl text-blue-600"></i>
+                <h3 class="text-xl font-bold text-gray-800">III. NGÂN SÁCH & PHẠM VI</h3>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div>
+                    <h4 class="font-semibold mb-3">Phạm vi công việc:</h4>
+                    <div class="space-y-2" id="scopeContainer">
+                        <label class="flex items-center space-x-2"><input type="checkbox" value="Thiết kế kiến trúc" class="form-checkbox scope-cb"> <span>Thiết kế kiến trúc</span></label>
+                        <label class="flex items-center space-x-2"><input type="checkbox" value="Thiết kế nội thất" class="form-checkbox scope-cb"> <span>Thiết kế nội thất</span></label>
+                        <label class="flex items-center space-x-2"><input type="checkbox" value="Thi công trọn gói" class="form-checkbox scope-cb"> <span>Thi công trọn gói</span></label>
+                        <label class="flex items-center space-x-2"><input type="checkbox" value="Cải tạo sửa chữa" class="form-checkbox scope-cb"> <span>Cải tạo sửa chữa</span></label>
+                    </div>
+                </div>
+                <div>
+                    <h4 class="font-semibold mb-3">Dự trù đầu tư (VNĐ):</h4>
+                    <div class="grid grid-cols-2 gap-2" id="budgetContainer">
+                        <label class="flex items-center space-x-2 p-2 bg-white rounded border"><input type="radio" name="budget" value="Dưới 500 Triệu"> <span>&lt; 500 Triệu</span></label>
+                        <label class="flex items-center space-x-2 p-2 bg-white rounded border"><input type="radio" name="budget" value="500Tr - 1 Tỷ"> <span>500Tr - 1 Tỷ</span></label>
+                        <label class="flex items-center space-x-2 p-2 bg-white rounded border"><input type="radio" name="budget" value="1 Tỷ - 3 Tỷ"> <span>1 Tỷ - 3 Tỷ</span></label>
+                        <label class="flex items-center space-x-2 p-2 bg-white rounded border"><input type="radio" name="budget" value="Trên 3 Tỷ"> <span>&gt; 3 Tỷ</span></label>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <div class="page-break"></div>
+
+        <!-- IV. Phong cách (Có ảnh minh họa) -->
+        <section class="mb-10">
+            <div class="section-header flex items-center gap-2">
+                <i class="fas fa-palette text-2xl text-blue-600"></i>
+                <h3 class="text-xl font-bold text-gray-800">IV. PHONG CÁCH THIẾT KẾ (Chọn ảnh yêu thích)</h3>
+            </div>
+
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6" id="styleContainer">
+                <!-- Card 1: Hiện đại -->
+                <label class="cursor-pointer style-card group">
+                    <input type="checkbox" class="checkbox-card" value="Hiện đại (Modern)">
+                    <div class="border-2 border-transparent rounded-lg overflow-hidden relative shadow-sm hover:shadow-md">
+                        <img src="https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?auto=format&fit=crop&w=400&q=80" 
+                             onerror="this.src='https://placehold.co/400x300?text=Modern'"
+                             alt="Hien dai" class="w-full h-32 object-cover img-overlay">
+                        <div class="p-2 text-center bg-white absolute bottom-0 w-full opacity-90">
+                            <span class="font-bold text-sm">Hiện đại (Modern)</span>
+                        </div>
+                        <div class="absolute top-2 right-2 bg-blue-600 text-white rounded-full w-6 h-6 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity check-icon"><i class="fas fa-check text-xs"></i></div>
+                    </div>
+                </label>
+
+                <!-- Card 2: Tối giản -->
+                <label class="cursor-pointer style-card group">
+                    <input type="checkbox" class="checkbox-card" value="Tối giản (Minimalism)">
+                    <div class="border-2 border-transparent rounded-lg overflow-hidden relative shadow-sm hover:shadow-md">
+                        <img src="https://images.unsplash.com/photo-1598928506311-c55ded91a20c?auto=format&fit=crop&w=400&q=80" 
+                             onerror="this.src='https://placehold.co/400x300?text=Minimalism'"
+                             alt="Minimalism" class="w-full h-32 object-cover img-overlay">
+                        <div class="p-2 text-center bg-white absolute bottom-0 w-full opacity-90">
+                            <span class="font-bold text-sm">Tối giản (Minimalism)</span>
+                        </div>
+                    </div>
+                </label>
+
+                <!-- Card 3: Tân cổ điển -->
+                <label class="cursor-pointer style-card group">
+                    <input type="checkbox" class="checkbox-card" value="Tân cổ điển (Neo Classic)">
+                    <div class="border-2 border-transparent rounded-lg overflow-hidden relative shadow-sm hover:shadow-md">
+                        <img src="https://images.unsplash.com/photo-1600566753376-12c8ab7fb75b?auto=format&fit=crop&w=400&q=80" 
+                             onerror="this.src='https://placehold.co/400x300?text=Neo+Classic'"
+                             alt="Tan Co Dien" class="w-full h-32 object-cover img-overlay">
+                        <div class="p-2 text-center bg-white absolute bottom-0 w-full opacity-90">
+                            <span class="font-bold text-sm">Tân cổ điển (Neo Classic)</span>
+                        </div>
+                    </div>
+                </label>
+
+                <!-- Card 4: Đông Dương -->
+                <label class="cursor-pointer style-card group">
+                    <input type="checkbox" class="checkbox-card" value="Đông Dương (Indochine)">
+                    <div class="border-2 border-transparent rounded-lg overflow-hidden relative shadow-sm hover:shadow-md">
+                        <img src="https://images.unsplash.com/photo-1551516594-56cb78394645?auto=format&fit=crop&w=400&q=80" 
+                             onerror="this.src='https://placehold.co/400x300?text=Indochine'"
+                             alt="Indochine" class="w-full h-32 object-cover img-overlay">
+                        <div class="p-2 text-center bg-white absolute bottom-0 w-full opacity-90">
+                            <span class="font-bold text-sm">Đông Dương (Indochine)</span>
+                        </div>
+                    </div>
+                </label>
+                 <!-- Card 5: Sang trọng -->
+                 <label class="cursor-pointer style-card group">
+                    <input type="checkbox" class="checkbox-card" value="Sang trọng (Luxury)">
+                    <div class="border-2 border-transparent rounded-lg overflow-hidden relative shadow-sm hover:shadow-md">
+                        <img src="https://images.unsplash.com/photo-1600607686527-6fb886090705?auto=format&fit=crop&w=400&q=80" 
+                             onerror="this.src='https://placehold.co/400x300?text=Luxury'"
+                             alt="Luxury" class="w-full h-32 object-cover img-overlay">
+                        <div class="p-2 text-center bg-white absolute bottom-0 w-full opacity-90">
+                            <span class="font-bold text-sm">Sang trọng (Luxury)</span>
+                        </div>
+                    </div>
+                </label>
+                 <!-- Card 6: Japandi -->
+                 <label class="cursor-pointer style-card group">
+                    <input type="checkbox" class="checkbox-card" value="Wabi Sabi / Japandi">
+                    <div class="border-2 border-transparent rounded-lg overflow-hidden relative shadow-sm hover:shadow-md">
+                        <img src="https://images.unsplash.com/photo-1554995207-c18c203602cb?auto=format&fit=crop&w=400&q=80" 
+                             onerror="this.src='https://placehold.co/400x300?text=Japandi'"
+                             alt="Japandi" class="w-full h-32 object-cover img-overlay">
+                        <div class="p-2 text-center bg-white absolute bottom-0 w-full opacity-90">
+                            <span class="font-bold text-sm">Wabi Sabi / Japandi</span>
+                        </div>
+                    </div>
+                </label>
+                 <!-- Card 7: Bắc Âu -->
+                 <label class="cursor-pointer style-card group">
+                    <input type="checkbox" class="checkbox-card" value="Bắc Âu (Scandinavian)">
+                    <div class="border-2 border-transparent rounded-lg overflow-hidden relative shadow-sm hover:shadow-md">
+                        <img src="https://images.unsplash.com/photo-1556228453-efd6c1ff04f6?auto=format&fit=crop&w=400&q=80" 
+                             onerror="this.src='https://placehold.co/400x300?text=Scandinavian'"
+                             alt="Scandianvian" class="w-full h-32 object-cover img-overlay">
+                        <div class="p-2 text-center bg-white absolute bottom-0 w-full opacity-90">
+                            <span class="font-bold text-sm">Bắc Âu (Scandinavian)</span>
+                        </div>
+                    </div>
+                </label>
+                 <!-- Card 8: Khác -->
+                 <label class="cursor-pointer style-card group">
+                    <input type="checkbox" class="checkbox-card" value="Khác">
+                    <div class="border-2 border-transparent rounded-lg overflow-hidden relative shadow-sm hover:shadow-md">
+                        <div class="w-full h-32 bg-gray-100 flex items-center justify-center">
+                            <span class="text-gray-400">Khác</span>
+                        </div>
+                        <div class="p-2 text-center bg-white absolute bottom-0 w-full opacity-90">
+                            <input type="text" id="otherStyle" placeholder="Ghi chú thêm..." class="w-full text-xs border-b border-gray-300 focus:outline-none">
+                        </div>
+                    </div>
+                </label>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-1">Màu sắc chủ đạo:</label>
+                    <textarea id="colorPreference" class="w-full p-2 border rounded h-20" placeholder="VD: Thích màu trắng, kem, gỗ sáng. Ghét màu tối, màu đỏ..."></textarea>
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-1">Vật liệu ưu tiên:</label>
+                    <div class="grid grid-cols-2 gap-2 text-sm" id="materialContainer">
+                        <label><input type="checkbox" value="Sàn gỗ"> Sàn gỗ</label>
+                        <label><input type="checkbox" value="Sàn gạch/đá"> Sàn gạch/đá</label>
+                        <label><input type="checkbox" value="Gỗ tự nhiên"> Gỗ tự nhiên</label>
+                        <label><input type="checkbox" value="Gỗ công nghiệp"> Gỗ công nghiệp</label>
+                        <label><input type="checkbox" value="Kim loại/Kính"> Kim loại/Kính</label>
+                        <label><input type="checkbox" value="Bề mặt bóng"> Bề mặt bóng (Acrylic)</label>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- V. Yêu cầu công năng chi tiết -->
+        <section class="mb-10">
+            <div class="section-header flex items-center gap-2">
+                <i class="fas fa-couch text-2xl text-blue-600"></i>
+                <h3 class="text-xl font-bold text-gray-800">V. YÊU CẦU CÔNG NĂNG CHI TIẾT</h3>
+            </div>
+
+            <!-- Living Room -->
+            <div class="flex flex-col md:flex-row gap-6 mb-8 border-b pb-6 border-dashed border-gray-300">
+                <div class="w-full md:w-1/3">
+                    <img src="https://images.unsplash.com/photo-1618221195710-dd6b41faaea6?auto=format&fit=crop&w=400&q=80" 
+                         onerror="this.src='https://placehold.co/400x300?text=Living+Room'"
+                         class="rounded-lg shadow-md w-full h-40 object-cover mb-2" alt="Living Room">
+                    <h4 class="font-bold text-lg text-gray-700 text-center">Phòng Khách</h4>
+                </div>
+                <div class="w-full md:w-2/3 space-y-3">
+                    <div class="flex gap-4">
+                        <label class="flex items-center space-x-2"><input type="checkbox" class="living-req" value="Tiếp khách thường xuyên"> <span>Tiếp khách thường xuyên</span></label>
+                        <label class="flex items-center space-x-2"><input type="checkbox" class="living-req" value="Chỉ sinh hoạt gia đình"> <span>Chỉ sinh hoạt gia đình</span></label>
+                    </div>
+                    <div>
+                        <span class="font-semibold text-sm">Thiết bị:</span>
+                        <label class="ml-2"><input type="checkbox" class="living-req" value="Tivi treo"> Tivi treo</label>
+                        <label class="ml-2"><input type="checkbox" class="living-req" value="Máy chiếu"> Máy chiếu</label>
+                        <label class="ml-2"><input type="checkbox" class="living-req" value="Loa/Karaoke"> Loa/Karaoke</label>
+                    </div>
+                    <div>
+                        <span class="font-semibold text-sm">Thờ cúng:</span>
+                        <select id="worshipType" class="border rounded p-1 text-sm">
+                            <option value="Phòng thờ riêng">Phòng thờ riêng</option>
+                            <option value="Bàn thờ treo P.Khách">Bàn thờ treo P.Khách</option>
+                            <option value="Tủ thờ đứng P.Khách">Tủ thờ đứng P.Khách</option>
+                        </select>
+                    </div>
+                    <input type="text" id="livingNotes" class="w-full border-b border-gray-300 p-1 bg-transparent text-sm" placeholder="Ghi chú khác (Piano, Tủ rượu, Bể cá...):">
+                </div>
+            </div>
+
+            <!-- Kitchen -->
+            <div class="flex flex-col md:flex-row gap-6 mb-8 border-b pb-6 border-dashed border-gray-300">
+                <div class="w-full md:w-1/3">
+                    <img src="https://images.unsplash.com/photo-1556911220-e15b29be8c8f?auto=format&fit=crop&w=400&q=80" 
+                         onerror="this.src='https://placehold.co/400x300?text=Kitchen'"
+                         class="rounded-lg shadow-md w-full h-40 object-cover mb-2" alt="Kitchen">
+                    <h4 class="font-bold text-lg text-gray-700 text-center">Bếp & Ăn</h4>
+                </div>
+                <div class="w-full md:w-2/3 space-y-3">
+                    <div class="grid grid-cols-2 gap-2 text-sm">
+                        <label><input type="radio" name="bep" value="Bếp mở"> Bếp mở (Thông khách)</label>
+                        <label><input type="radio" name="bep" value="Bếp kín"> Bếp kín (Riêng biệt)</label>
+                        <label><input type="checkbox" class="kitchen-req" value="Bàn đảo"> Có bàn đảo (Island)</label>
+                        <label><input type="checkbox" class="kitchen-req" value="Quầy Bar"> Có quầy Bar</label>
+                    </div>
+                    <div>
+                        <span class="font-semibold text-sm">Thiết bị cần lắp:</span>
+                        <div class="text-sm grid grid-cols-2">
+                            <label><input type="checkbox" class="kitchen-eq" value="Tủ lạnh Side-by-side"> Tủ lạnh Side-by-side</label>
+                            <label><input type="checkbox" class="kitchen-eq" value="Máy rửa bát"> Máy rửa bát</label>
+                            <label><input type="checkbox" class="kitchen-eq" value="Lò nướng/Vi sóng"> Lò nướng/Vi sóng</label>
+                            <label><input type="checkbox" class="kitchen-eq" value="Máy lọc nước"> Máy lọc nước</label>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2">
+                         <span class="font-semibold text-sm">Bàn ăn:</span>
+                         <input type="text" id="diningSeats" class="border-b p-1 w-20 text-center" placeholder="6 ghế">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Bedrooms (Master & Others) -->
+            <div class="flex flex-col md:flex-row gap-6 mb-8 border-b pb-6 border-dashed border-gray-300">
+                <div class="w-full md:w-1/3">
+                    <img src="https://images.unsplash.com/photo-1617325247661-675ab4b64ae2?auto=format&fit=crop&w=400&q=80" 
+                         onerror="this.src='https://placehold.co/400x300?text=Bedrooms'"
+                         class="rounded-lg shadow-md w-full h-40 object-cover mb-2" alt="Bedroom">
+                    <h4 class="font-bold text-lg text-gray-700 text-center">Phòng Ngủ</h4>
+                    <div class="text-center mt-2">
+                         <label class="text-sm font-semibold text-blue-600">Tổng số lượng:</label>
+                         <input type="text" id="numBedrooms" class="border border-blue-300 rounded p-1 w-16 text-center" placeholder="3">
+                    </div>
+                </div>
+                <div class="w-full md:w-2/3 space-y-4">
+                    <!-- Master -->
+                    <div class="bg-gray-50 p-3 rounded">
+                        <h5 class="font-bold text-sm text-gray-800 border-b border-gray-200 pb-1 mb-2">1. Phòng Ngủ Master (Chính)</h5>
+                        <div class="flex gap-4 text-sm mb-2">
+                            <span class="font-semibold">Giường:</span>
+                            <label><input type="radio" name="bed" value="1m6"> 1m6</label>
+                            <label><input type="radio" name="bed" value="1m8"> 1m8</label>
+                            <label><input type="radio" name="bed" value="2m2"> 2m2</label>
+                        </div>
+                        <div class="grid grid-cols-2 text-sm gap-2">
+                            <label><input type="checkbox" class="master-req" value="Tủ quần áo lớn"> Tủ quần áo lớn</label>
+                            <label><input type="checkbox" class="master-req" value="Phòng thay đồ riêng"> Phòng thay đồ riêng (Walk-in closet)</label>
+                            <label><input type="checkbox" class="master-req" value="Bàn trang điểm"> Bàn trang điểm</label>
+                            <label><input type="checkbox" class="master-req" value="Bàn làm việc"> Bàn làm việc</label>
+                            <label><input type="checkbox" class="master-req" value="Tivi trong phòng"> Tivi</label>
+                        </div>
+                    </div>
+                    
+                    <!-- Secondary -->
+                    <div>
+                        <h5 class="font-bold text-sm text-gray-800 border-b border-gray-200 pb-1 mb-2">2. Các Phòng Ngủ Phụ</h5>
+                        <input type="text" id="bedroomNotes" class="w-full border p-2 text-sm rounded bg-white" placeholder="VD: 1 phòng cho bé trai (Giường tầng), 1 phòng cho Ông bà (Tầng 1)...">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Bathrooms (WC) -->
+            <div class="flex flex-col md:flex-row gap-6 mb-8 border-b pb-6 border-dashed border-gray-300">
+                <div class="w-full md:w-1/3">
+                    <img src="https://images.unsplash.com/photo-1552321554-5fefe8c9ef14?auto=format&fit=crop&w=400&q=80" 
+                         onerror="this.src='https://placehold.co/400x300?text=Bathrooms'"
+                         class="rounded-lg shadow-md w-full h-40 object-cover mb-2" alt="Bathrooms">
+                    <h4 class="font-bold text-lg text-gray-700 text-center">Phòng Vệ Sinh (WC)</h4>
+                    <div class="text-center mt-2">
+                        <label class="text-sm font-semibold text-blue-600">Tổng số lượng:</label>
+                        <input type="text" id="numBathrooms" class="border border-blue-300 rounded p-1 w-16 text-center" placeholder="3">
+                   </div>
+                </div>
+                <div class="w-full md:w-2/3 space-y-3">
+                    <div class="grid grid-cols-2 gap-3 text-sm">
+                        <label class="flex items-center gap-2"><input type="checkbox" class="wc-req" value="Bồn tắm nằm"> Bồn tắm nằm (Master)</label>
+                        <label class="flex items-center gap-2"><input type="checkbox" class="wc-req" value="Vách kính tắm đứng"> Vách kính tắm đứng</label>
+                        <label class="flex items-center gap-2"><input type="checkbox" class="wc-req" value="Bồn cầu thông minh"> Bồn cầu thông minh</label>
+                        <label class="flex items-center gap-2"><input type="checkbox" class="wc-req" value="Đèn sưởi mùa đông"> Đèn sưởi mùa đông</label>
+                        <label class="flex items-center gap-2"><input type="checkbox" class="wc-req" value="Lavabo đôi"> Lavabo đôi (2 chậu)</label>
+                        <label class="flex items-center gap-2"><input type="checkbox" class="wc-req" value="WC khép kín"> WC khép kín trong phòng ngủ</label>
+                    </div>
+                    <div class="mt-2">
+                        <label class="font-semibold text-sm">Ghi chú thiết bị vệ sinh:</label>
+                        <input type="text" id="wcNotes" class="w-full border-b border-gray-300 p-1 bg-transparent text-sm" placeholder="VD: Thích thiết bị Toto/Kohler, cần vòi xịt mạnh...">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Special Rooms (Functional) -->
+            <div class="flex flex-col md:flex-row gap-6">
+                <div class="w-full md:w-1/3">
+                    <img src="https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&w=400&q=80" 
+                         onerror="this.src='https://placehold.co/400x300?text=Special+Rooms'"
+                         class="rounded-lg shadow-md w-full h-40 object-cover mb-2" alt="Special Rooms">
+                    <h4 class="font-bold text-lg text-gray-700 text-center">Các Phòng Chức Năng Khác</h4>
+                </div>
+                <div class="w-full md:w-2/3 space-y-3">
+                    <p class="text-sm text-gray-500 italic mb-2">Đánh dấu vào các phòng bạn muốn có trong ngôi nhà:</p>
+                    <div class="grid grid-cols-2 gap-3 text-sm" id="specialRoomContainer">
+                        <label class="flex items-center gap-2 font-semibold text-gray-700"><input type="checkbox" value="Phòng thờ riêng biệt"> Phòng thờ riêng biệt</label>
+                        <label class="flex items-center gap-2"><input type="checkbox" value="Phòng làm việc/Đọc sách"> Phòng làm việc / Đọc sách</label>
+                        <label class="flex items-center gap-2"><input type="checkbox" value="Phòng Gym/Yoga"> Phòng Gym / Yoga</label>
+                        <label class="flex items-center gap-2"><input type="checkbox" value="Phòng giải trí/Karaoke"> Phòng giải trí / Karaoke</label>
+                        <label class="flex items-center gap-2"><input type="checkbox" value="Phòng giặt sấy riêng"> Phòng giặt sấy riêng</label>
+                        <label class="flex items-center gap-2"><input type="checkbox" value="Kho chứa đồ"> Kho chứa đồ</label>
+                        <label class="flex items-center gap-2"><input type="checkbox" value="Gara ô tô"> Gara ô tô (Trong nhà)</label>
+                        <label class="flex items-center gap-2"><input type="checkbox" value="Phòng giúp việc"> Phòng cho người giúp việc</label>
+                    </div>
+                </div>
+            </div>
+
+        </section>
+
+        <!-- VI. Kỹ thuật & Phong thủy (Đã thêm nút AI) -->
+        <section class="mb-10 bg-gray-50 p-6 rounded-lg">
+            <div class="section-header flex items-center justify-between border-gray-300">
+                <div class="flex items-center gap-2">
+                    <i class="fas fa-yin-yang text-2xl text-blue-600"></i>
+                    <h3 class="text-xl font-bold text-gray-800">VI. KỸ THUẬT & PHONG THỦY</h3>
+                </div>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                <div>
+                    <h4 class="font-semibold text-blue-800 mb-2">Phong Thủy</h4>
+                    <div class="space-y-2">
+                        <label class="block text-sm">Hướng nhà hiện tại:</label>
+                        <input type="text" id="houseDirection" class="w-full border p-1 rounded bg-white" placeholder="VD: Đông Nam">
+                        <label class="block text-sm">Những điều kiêng kỵ đặc biệt:</label>
+                        <textarea id="fengshuiNotes" class="w-full border p-1 rounded h-20 bg-white" placeholder="VD: Kiêng gương chiếu vào giường, không đặt bếp dưới WC..."></textarea>
+                    </div>
+                </div>
+                <div>
+                    <h4 class="font-semibold text-blue-800 mb-2">Hệ Thống Kỹ Thuật</h4>
+                    <div class="space-y-2 text-sm">
+                        <label class="block"><input type="checkbox" class="tech-req" value="Smarthome"> Điện thông minh (Smarthome)</label>
+                        <div class="flex gap-2 items-center">
+                            <span>Điều hòa:</span>
+                            <select id="acType" class="border p-1 rounded bg-white">
+                                <option value="Treo tường">Treo tường</option>
+                                <option value="Âm trần nối ống gió">Âm trần nối ống gió</option>
+                                <option value="Âm trần Cassette">Âm trần Cassette</option>
+                            </select>
+                        </div>
+                        <label class="block"><input type="checkbox" class="tech-req" value="Lọc nước/Nóng lạnh"> Lọc nước tổng / Nước nóng trung tâm</label>
+                        <label class="block"><input type="checkbox" class="tech-req" value="Tưới tự động"> Hệ thống tưới sân vườn tự động</label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Nút AI cho phần VI -->
+            <div class="border-t border-gray-200 pt-4 mt-2">
+                <div class="flex flex-col md:flex-row items-center gap-4">
+                    <button id="quickFengshuiBtn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-full shadow transition text-sm flex items-center whitespace-nowrap">
+                        <span id="btnFengshuiText"><i class="fas fa-magic mr-2"></i> ✨ Tra cứu nhanh Phong Thủy & Kỹ Thuật</span>
+                    </button>
+                    <p class="text-xs text-gray-500 italic">Bấm để AI kiểm tra ngay hướng nhà hợp tuổi và tư vấn thiết bị.</p>
+                </div>
+                <!-- Kết quả hiển thị ngay tại đây -->
+                <div id="quick-fengshui-result" class="hidden mt-4 bg-white p-4 rounded-lg border border-blue-200 shadow-sm text-sm text-gray-800"></div>
+            </div>
+        </section>
+
+        <!-- VII. Ghi chú & Đồ cũ -->
+        <section class="mb-10">
+            <div class="section-header flex items-center gap-2">
+                <i class="fas fa-pen-nib text-2xl text-blue-600"></i>
+                <h3 class="text-xl font-bold text-gray-800">VII. GHI CHÚ KHÁC & ĐỒ TẬN DỤNG</h3>
+            </div>
+            <div class="space-y-4">
+                <div>
+                    <label class="font-semibold text-sm">Danh sách đồ nội thất cũ muốn giữ lại (Kèm kích thước Dài x Rộng x Cao):</label>
+                    <textarea id="oldFurniture" class="w-full p-3 border rounded-lg bg-yellow-50 h-24 mt-1" placeholder="1. Tủ lạnh Hitachi (900x700x1800)&#10;2. Bộ sofa da bò..."></textarea>
+                </div>
+                <div>
+                    <label class="font-semibold text-sm">Thói quen sinh hoạt đặc biệt / Sở thích (Nuôi thú cưng, sưu tầm rượu...):</label>
+                    <textarea id="hobbies" class="w-full p-3 border rounded-lg bg-gray-50 h-24 mt-1"></textarea>
+                </div>
+            </div>
+        </section>
+
+        <!-- AI SECTION -->
+        <section id="ai-section" class="mb-10 border-2 border-purple-200 bg-purple-50 p-6 rounded-xl no-print">
+            <div class="text-center">
+                <h3 class="text-2xl font-bold text-purple-700 mb-2">✨ Trợ lý Kiến Trúc Sư AI Tổng Thể ✨</h3>
+                <p class="text-gray-600 mb-4">Điền đầy đủ thông tin ở trên và bấm nút để AI phân tích concept toàn diện cho ngôi nhà.</p>
+                
+                <button id="analyzeBtn" class="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-bold py-3 px-8 rounded-full shadow-lg transition transform hover:scale-105">
+                    <span id="btnText"><i class="fas fa-magic mr-2"></i> Phân tích toàn bộ dự án</span>
+                </button>
+            </div>
+
+            <div id="ai-result" class="hidden mt-6 bg-white p-6 rounded-lg shadow-inner border border-purple-100">
+                <!-- Result will appear here -->
+            </div>
+        </section>
+
+        <div class="text-center no-print mt-8 mb-12">
+            <button onclick="window.print()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-full shadow-lg transition transform hover:scale-105">
+                <i class="fas fa-print mr-2"></i> In Phiếu / Lưu PDF
+            </button>
+            <p class="text-sm text-gray-500 mt-2">Mẹo: Chọn "Save as PDF" trong cửa sổ in để gửi file mềm cho khách.</p>
+        </div>
+
+    </div>
+
+    <script>
+        const apiKey = ""; // API Key handled by environment
+
+        // === FUNCTION 1: QUICK FENG SHUI & TECH CONSULT ===
+        async function consultFengShuiAndTech() {
+            const btn = document.getElementById('quickFengshuiBtn');
+            const btnText = document.getElementById('btnFengshuiText');
+            const resultDiv = document.getElementById('quick-fengshui-result');
+            
+            // Gather input specific to this section + Birth Year
+            const maleYear = document.getElementById('birthYearMale').value;
+            const femaleYear = document.getElementById('birthYearFemale').value;
+            const direction = document.getElementById('houseDirection').value;
+            const acType = document.getElementById('acType').value;
+            const techReqs = Array.from(document.querySelectorAll('.tech-req:checked')).map(cb => cb.value).join(', ');
+            
+            if (!direction && !maleYear && !femaleYear) {
+                alert("Vui lòng nhập ít nhất Năm sinh hoặc Hướng nhà để AI tra cứu.");
+                return;
+            }
+
+            // UI Loading
+            btn.disabled = true;
+            btnText.innerHTML = '<div class="loader"></div> Đang tra cứu...';
+            resultDiv.classList.remove('hidden');
+            resultDiv.innerHTML = '<p class="text-gray-500 italic">Đang tính toán cung mệnh và phân tích kỹ thuật...</p>';
+
+            const prompt = `
+                Bạn là Chuyên gia Phong thủy & Kỹ sư MEP (Cơ điện). Hãy tư vấn nhanh cho khách hàng dựa trên thông tin sau:
+                - Năm sinh Nam: ${maleYear || 'Không có'}
+                - Năm sinh Nữ: ${femaleYear || 'Không có'}
+                - Hướng nhà: ${direction || 'Chưa rõ'}
+                - Loại điều hòa chọn: ${acType}
+                - Tiện ích khác: ${techReqs || 'Không có'}
+
+                YÊU CẦU TRẢ LỜI NGẮN GỌN (HTML <ul> <li> <b>):
+                1. PHONG THỦY:
+                   - Tính Cung Mệnh cho các năm sinh đã cung cấp.
+                   - Nếu có Hướng nhà, kiểm tra xem có hợp không (Sinh Khí, Diên Niên... hay Tuyệt Mệnh...). Nếu xấu gợi ý cách hóa giải nhanh (màu sắc, vật phẩm).
+                
+                2. KỸ THUẬT:
+                   - Đánh giá nhanh ưu/nhược điểm của loại điều hòa "${acType}" đối với nhà ở gia đình.
+                   - Nêu 1 lợi ích thiết thực nhất của các tiện ích khác (${techReqs}) nếu có.
+            `;
+
+            try {
+                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+                });
+
+                if (!response.ok) throw new Error('API Error');
+                const dataRes = await response.json();
+                const aiText = dataRes.candidates[0].content.parts[0].text;
+                
+                resultDiv.innerHTML = `<div class="prose prose-sm max-w-none text-gray-800">${aiText}</div>`;
+            } catch (error) {
+                console.error(error);
+                resultDiv.innerHTML = '<p class="text-red-500">Lỗi kết nối AI. Vui lòng thử lại.</p>';
+            } finally {
+                btn.disabled = false;
+                btnText.innerHTML = '<i class="fas fa-magic mr-2"></i> ✨ Tra cứu nhanh Phong Thủy & Kỹ Thuật';
+            }
+        }
+        
+        document.getElementById('quickFengshuiBtn').addEventListener('click', consultFengShuiAndTech);
+
+
+        // === FUNCTION 2: FULL PROJECT ANALYSIS (Existing) ===
+        async function analyzeDesign() {
+            const btn = document.getElementById('analyzeBtn');
+            const btnText = document.getElementById('btnText');
+            const resultDiv = document.getElementById('ai-result');
+
+            // 1. Gather Data
+            const data = {
+                name: document.getElementById('clientName').value || "Khách hàng",
+                birthYearMale: document.getElementById('birthYearMale').value,
+                birthYearFemale: document.getElementById('birthYearFemale').value,
+                houseType: document.getElementById('houseType').value,
+                landArea: document.getElementById('landArea').value,
+                floorArea: document.getElementById('floorArea').value,
+                houseFloors: document.getElementById('houseFloors').value,
+                currentStatus: document.getElementById('currentStatus').value,
+                legalStatus: document.getElementById('legalStatus').value,
+                familyMembers: document.getElementById('familyMembers').value,
+                budget: document.querySelector('input[name="budget"]:checked')?.value || "Chưa chọn",
+                styles: Array.from(document.querySelectorAll('#styleContainer input:checked')).map(cb => cb.value).join(', '),
+                colors: document.getElementById('colorPreference').value,
+                materials: Array.from(document.querySelectorAll('#materialContainer input:checked')).map(cb => cb.value).join(', '),
+                houseDirection: document.getElementById('houseDirection').value,
+                fengshuiNotes: document.getElementById('fengshuiNotes').value,
+                hobbies: document.getElementById('hobbies').value,
+                otherNotes: document.getElementById('oldFurniture').value,
+                
+                // New Fields
+                numBedrooms: document.getElementById('numBedrooms').value,
+                numBathrooms: document.getElementById('numBathrooms').value,
+                specialRooms: Array.from(document.querySelectorAll('#specialRoomContainer input:checked')).map(cb => cb.value).join(', '),
+                wcNotes: document.getElementById('wcNotes').value,
+                bedroomNotes: document.getElementById('bedroomNotes').value,
+                
+                // Tech Fields (Updated)
+                techReqs: Array.from(document.querySelectorAll('.tech-req:checked')).map(cb => cb.value).join(', '),
+                acType: document.getElementById('acType').value
+            };
+
+            // Check minimal input
+            if (!data.houseType && !data.styles) {
+                alert("Vui lòng chọn ít nhất Loại hình nhà và Phong cách yêu thích để AI phân tích.");
+                return;
+            }
+
+            // 2. UI Loading State
+            btn.disabled = true;
+            btnText.innerHTML = '<div class="loader"></div> Đang xin ý kiến KTS AI...';
+            resultDiv.classList.remove('hidden');
+            resultDiv.innerHTML = '<p class="text-center text-gray-500 italic">Đang phân tích dữ liệu và tổng hợp ý tưởng...</p>';
+
+            // 3. Construct Prompt
+            const prompt = `
+                Bạn là một Kiến trúc sư trưởng giàu kinh nghiệm (Senior Architect). Hãy phân tích dữ liệu khảo sát dưới đây và đưa ra tư vấn sơ bộ cho khách hàng.
+                
+                THÔNG TIN KHÁCH HÀNG:
+                - Tên: ${data.name}
+                - Loại hình: ${data.houseType}
+                - Quy mô: ${data.houseFloors ? data.houseFloors + ' tầng' : 'Chưa rõ số tầng'}
+                - Hiện trạng: ${data.currentStatus}
+                - Pháp lý: ${data.legalStatus}
+                - Diện tích đất: ${data.landArea || 'Chưa rõ'} m2
+                - Diện tích sàn sử dụng: ${data.floorArea || 'Chưa rõ'} m2
+                - Thành viên: ${data.familyMembers}
+                - Ngân sách: ${data.budget}
+                - Phong cách yêu thích: ${data.styles}
+                - Màu sắc/Vật liệu: ${data.colors} / ${data.materials}
+                - Năm sinh: Nam ${data.birthYearMale}, Nữ ${data.birthYearFemale}
+                - Hướng nhà: ${data.houseDirection}
+                - Ghi chú khác: ${data.hobbies}, ${data.fengshuiNotes}
+                
+                YÊU CẦU CÔNG NĂNG & KỸ THUẬT:
+                - Số phòng ngủ: ${data.numBedrooms || '?'} (Ghi chú: ${data.bedroomNotes})
+                - Số WC: ${data.numBathrooms || '?'} (Ghi chú: ${data.wcNotes})
+                - Các phòng đặc biệt yêu cầu: ${data.specialRooms}
+                - Hệ thống kỹ thuật: Điều hòa ${data.acType}, Các tiện ích khác: ${data.techReqs}
+
+                YÊU CẦU ĐẦU RA (Trả về định dạng HTML đơn giản, không dùng markdown block, sử dụng các thẻ h3, h4, ul, li, strong, p):
+                
+                1. <h3>PHÂN TÍCH PHONG CÁCH & KHÔNG GIAN</h3>
+                   - Mô tả ngắn gọn về cảm hứng thiết kế dựa trên phong cách ${data.styles} và vật liệu đã chọn.
+                   - Đề xuất Moodboard (Tông màu chủ đạo và điểm nhấn).
+
+                2. <h3>LỜI KHUYÊN CÔNG NĂNG & NGÂN SÁCH</h3>
+                   - Dựa trên ngân sách "${data.budget}" và diện tích, hãy đánh giá mức độ khả thi.
+                   - Lưu ý về số lượng phòng: Với diện tích này và yêu cầu ${data.numBedrooms} phòng ngủ, ${data.specialRooms}, bố trí có hợp lý không?
+                   - Lưu ý kỹ thuật: Đánh giá sơ bộ về việc triển khai ${data.techReqs} (nếu có).
+                   - Lưu ý về pháp lý: Với tình trạng "${data.legalStatus}", cần lưu ý gì khi xin phép xây dựng hoặc cải tạo không?
+
+                3. <h3>GÓC PHONG THỦY (SƠ LƯỢC)</h3>
+                   - Nếu có năm sinh, tính nhanh Cung mệnh và gợi ý hướng tốt/xấu cơ bản hoặc màu sắc hợp mệnh. Nếu không có năm sinh, bỏ qua mục này.
+
+                4. <h3>Ý TƯỞNG ĐỘC ĐÁO (WOW FACTOR)</h3>
+                   - Gợi ý 1 điểm nhấn đặc biệt cho ngôi nhà này dựa trên sở thích ${data.hobbies} hoặc các phòng chức năng đặc biệt đã chọn.
+
+                Giọng văn chuyên nghiệp, tinh tế, ân cần nhưng súc tích.
+            `;
+
+            try {
+                // 4. Call Gemini API
+                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: [{ parts: [{ text: prompt }] }]
+                    })
+                });
+
+                if (!response.ok) throw new Error('API Error');
+                
+                const dataRes = await response.json();
+                const aiText = dataRes.candidates[0].content.parts[0].text;
+
+                // 5. Display Result
+                resultDiv.innerHTML = `
+                    <div class="prose max-w-none text-gray-800">
+                        <div class="flex items-center gap-2 mb-4 pb-2 border-b">
+                            <i class="fas fa-robot text-purple-600 text-xl"></i>
+                            <h2 class="text-xl font-bold text-purple-800 m-0">KẾT QUẢ PHÂN TÍCH SƠ BỘ</h2>
+                        </div>
+                        ${aiText}
+                        <div class="mt-4 p-3 bg-yellow-50 text-sm text-yellow-800 rounded border border-yellow-200">
+                            <i class="fas fa-exclamation-circle"></i> <strong>Lưu ý:</strong> Đây là gợi ý sơ bộ từ AI. Kiến trúc sư sẽ trao đổi chi tiết để đưa ra phương án chính xác nhất.
+                        </div>
+                    </div>
+                `;
+
+            } catch (error) {
+                console.error(error);
+                resultDiv.innerHTML = '<p class="text-red-500 text-center">Có lỗi xảy ra khi kết nối với KTS AI. Vui lòng thử lại sau!</p>';
+            } finally {
+                btn.disabled = false;
+                btnText.innerHTML = '<i class="fas fa-magic mr-2"></i> Phân tích toàn bộ dự án';
+            }
+        }
+
+        document.getElementById('analyzeBtn').addEventListener('click', analyzeDesign);
+    </script>
+
+</body>
+</html>
