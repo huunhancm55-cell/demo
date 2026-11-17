@@ -49,8 +49,8 @@ const DB = {
   open() {
     return new Promise(res => {
       try {
-        const r = indexedDB.open('qlxd', 1);
-        r.onupgradeneeded = () => { r.result.createObjectStore('kv'); r.result.createObjectStore('photos'); };
+        const r = indexedDB.open('qlxd', 2);
+        r.onupgradeneeded = () => { for (const n of ['kv', 'photos', 'files']) if (!r.result.objectStoreNames.contains(n)) r.result.createObjectStore(n); };
         r.onsuccess = () => { this.db = r.result; res(); };
         r.onerror = () => res();
       } catch (e) { res(); }
@@ -71,9 +71,9 @@ const DB = {
 };
 
 const blank = () => ({
-  projects: [], quotes: [], logs: [], costs: [],
+  projects: [], quotes: [], logs: [], costs: [], docs: [],
   settings: { company: 'Công ty TNHH MTV Xây dựng Thương mại Hữu Nhân', phone: '0914 580 385', address: '364 Quang Trung, khóm 20, P. Tân Thành, Cà Mau', tax: '2001297621' },
-  ui: { tab: 'projects', pid: '', ctype: '' },
+  ui: { tab: 'projects', pid: '', ctype: '', dtype: '' },
 });
 let S = blank();
 let saveTimer;
@@ -109,17 +109,41 @@ function compressImage(file, max = 1280) {
   });
 }
 
+// Ảnh chụp giấy tờ: thu nhỏ vừa đủ đọc rõ để tiết kiệm bộ nhớ; tệp khác giữ nguyên
+function shrinkImage(file, max = 2000) {
+  if (!/^image\/(jpeg|png|webp)$/.test(file.type)) return Promise.resolve(file);
+  return new Promise(res => {
+    const url = URL.createObjectURL(file), img = new Image();
+    const done = b => { URL.revokeObjectURL(url); res(b && b.size < file.size ? b : file); };
+    img.onload = () => {
+      const k = Math.min(1, max / Math.max(img.width, img.height));
+      if (k === 1 && file.size < 1.5e6) return done(null);
+      const c = document.createElement('canvas');
+      c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+      c.toBlob(done, 'image/jpeg', 0.82);
+    };
+    img.onerror = () => done(null);
+    img.src = url;
+  });
+}
+const fsize = n => n >= 1e6 ? fmt(Math.round(n / 1e5) / 10) + ' MB' : Math.max(1, Math.round(n / 1e3)) + ' KB';
+const fileIcon = f => /^image\//.test(f.type) ? '🖼️' : /pdf/.test(f.type) ? '📕' : '📄';
+const blobToDataURL = b => new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(b); });
+
 // ---------- Danh mục ----------
 const TABS = [
   ['projects', 'Dự án', '<path d="M3 21h18M5 21V8l7-5 7 5v13M9 21v-6h6v6"/>'],
   ['quotes', 'Báo giá', '<path d="M7 3h8l4 4v14H7zM15 3v4h4M10 12h6M10 16h6"/>'],
   ['logs', 'Nhật ký', '<path d="M5 4h14v17H5zM9 2v4M15 2v4M8 11h8M8 15h5"/>'],
   ['costs', 'Chi phí', '<path d="M3 7h18v12H3zM3 11h18M7 15h4"/>'],
+  ['docs', 'Hồ sơ', '<path d="M3 6h6l2 3h10v10H3z"/>'],
   ['settings', 'Cài đặt', '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2"/>'],
 ];
 const P_STATUS = { prep: ['Chuẩn bị', 'blue'], active: ['Đang thi công', 'orange'], paused: ['Tạm dừng', ''], done: ['Hoàn thành', 'green'] };
 const Q_STATUS = { draft: ['Nháp', ''], sent: ['Đã gửi', 'blue'], approved: ['Đã duyệt', 'green'], rejected: ['Từ chối', 'red'] };
 const CATS = ['Vật tư', 'Nhân công', 'Máy thi công', 'Thầu phụ', 'Vận chuyển', 'Khác'];
+const DOC_TYPES = ['Hợp đồng', 'Phiếu đề nghị cấp vật tư', 'Biên bản nghiệm thu', 'Giấy tạm ứng', 'Giấy ủy quyền', 'Khác'];
 const WEATHER = ['☀️ Nắng', '⛅ Mát', '🌧️ Mưa', '⛈️ Mưa to'];
 const TPL = {
   'Phần thô nhà phố': [['Đào móng, vận chuyển đất', 'm³'], ['Bê tông móng, đà kiềng', 'm³'], ['Cốt thép móng, cột, dầm, sàn', 'tấn'], ['Bê tông cột, dầm, sàn', 'm³'], ['Xây tường gạch', 'm²'], ['Tô trát tường', 'm²'], ['Chống thấm sàn mái, WC', 'm²'], ['Hệ thống điện nước âm', 'm² sàn']],
@@ -186,10 +210,11 @@ const VIEWS = {
         <div class="row between wrap small mt"><span class="muted">Chi phí / ${p.budget ? 'ngân sách' : 'hợp đồng'}</span><span class="num"><b>${short(m.chi)}</b> / ${short(base)}${base ? ` (${pct}%)` : ''}</span></div>
         <div class="bar mt"><i class="${pct > 100 ? 'over' : ''}" style="width:${Math.min(pct, 100)}%"></i></div>
         <div class="row between wrap small mt"><span class="muted">Đã thu <b class="pos num">${short(m.thu)}</b></span><span class="muted">Lãi tạm tính <b class="num ${p.contract - m.chi < 0 ? 'neg' : 'pos'}">${short(p.contract - m.chi)}</b></span></div>
-        <div class="row mt" style="gap:16px">
+        <div class="row wrap mt" style="column-gap:16px">
           <button class="linkbtn" data-act="go" data-id="${p.id}" data-tab="quotes">Báo giá (${nq})</button>
           <button class="linkbtn" data-act="go" data-id="${p.id}" data-tab="logs">Nhật ký (${nl})</button>
           <button class="linkbtn" data-act="go" data-id="${p.id}" data-tab="costs">Chi phí</button>
+          <button class="linkbtn" data-act="go" data-id="${p.id}" data-tab="docs">Hồ sơ (${S.docs.filter(d => d.projectId === p.id).length})</button>
         </div></div>`;
     }).join('')}</div>`;
   },
@@ -245,6 +270,25 @@ const VIEWS = {
       <div class="bold num ${c.type === 'thu' ? 'pos' : 'neg'}">${c.type === 'thu' ? '+' : '−'}${fmt(c.amount)}</div></div>`).join('')}</div>`;
   },
 
+  docs() {
+    const all = S.docs.filter(inScope);
+    if (!all.length) return empty('🗂️', 'Chưa có hồ sơ', 'Lưu bản chụp hoặc file hợp đồng, phiếu đề nghị cấp vật tư, biên bản nghiệm thu, giấy tạm ứng, giấy ủy quyền… theo từng dự án để tra lại khi cần.',
+      `<button class="btn primary" data-act="add">+ Lưu hồ sơ</button>`);
+    const t = S.ui.dtype, list = all.filter(d => !t || d.type === t).sort(byDateDesc);
+    const types = DOC_TYPES.filter(x => all.some(d => d.type === x));
+    return `<div class="chips"><button class="chip ${t ? '' : 'on'}" data-act="dtype" data-id="">Tất cả (${all.length})</button>
+      ${types.map(x => `<button class="chip ${t === x ? 'on' : ''}" data-act="dtype" data-id="${esc(x)}">${esc(x)} (${all.filter(d => d.type === x).length})</button>`).join('')}</div>
+    <div class="list cols">${list.map(d => `<div class="card">
+      <div class="row between tap" data-act="editDoc" data-id="${d.id}">
+        <div class="grow"><div class="bold clip">${esc(d.title || d.type)}</div>
+        <div class="small muted clip">${esc([d.no && 'Số ' + d.no, fdate(d.date), S.ui.pid ? '' : pname(d.projectId)].filter(Boolean).join(' · '))}</div></div><span class="linkbtn">Sửa</span></div>
+      <div class="row between wrap small mt">${d.title ? `<span class="badge blue">${esc(d.type)}</span>` : '<span></span>'}${d.amount ? `<b class="num">${money(d.amount)}</b>` : ''}</div>
+      ${d.party ? `<div class="small muted mt clip">${esc(d.party)}</div>` : ''}
+      ${d.note ? `<p class="pre small mt">${esc(d.note)}</p>` : ''}
+      ${(d.files || []).length ? `<div class="mt">${d.files.map(f => `<div class="frow tap" data-act="openFile" data-id="${f.id}"><span class="grow clip">${fileIcon(f)} ${esc(f.name)}</span><span class="small muted">${fsize(f.size)}</span></div>`).join('')}</div>` : `<div class="small muted mt">Chưa đính kèm tệp</div>`}
+    </div>`).join('')}</div>`;
+  },
+
   settings() {
     const s = S.settings;
     return `<div class="list">
@@ -270,6 +314,7 @@ const VIEWS = {
 
 // ---------- Sheet / biểu mẫu ----------
 let sheetCleanup = null;
+let formFiles = () => [];
 function openSheet(html, wide) {
   const o = $('#overlay');
   o.innerHTML = `<div class="sheet ${wide ? 'wide' : ''}" role="dialog" aria-modal="true">${html}</div>`;
@@ -291,6 +336,7 @@ function fieldHTML(f, v) {
   else if (f.type === 'money') inp = `<input ${a} data-money inputmode="numeric" class="right" value="${v ? fmt(v) : ''}">`;
   else if (f.type === 'number') inp = `<input ${a} inputmode="decimal" value="${v || ''}">`;
   else if (f.type === 'photos') inp = `<div class="thumbs" id="phThumbs"></div><div class="mt"><button type="button" class="btn sm" data-act="pickPhoto">📷 Thêm ảnh</button><input type="file" id="phFile" accept="image/*" multiple hidden></div>`;
+  else if (f.type === 'files') inp = `<div id="flList"></div><div class="mt"><button type="button" class="btn sm" data-act="pickFile">📎 Thêm tệp / chụp ảnh</button><input type="file" id="flFile" multiple hidden></div>`;
   else inp = `<input ${a} type="${f.type || 'text'}" value="${esc(v)}">`;
   return `<div class="${f.half ? '' : 'full'}"><label for="f_${f.k}">${f.label}${f.required ? ' *' : ''}</label>${inp}</div>`;
 }
@@ -318,18 +364,43 @@ function openForm({ title, fields, data, onSave, onDelete }) {
       e.target.value = ''; drawPhotos();
     };
     $('#phThumbs', el).onclick = e => { const id = e.target.dataset.rm; if (id) { photos = photos.filter(x => x !== id); drawPhotos(); } };
-    sheetCleanup = () => added.forEach(id => DB.del('photos', id));
   }
+  // Tệp đính kèm
+  const ff = fields.find(f => f.type === 'files');
+  let files = ff ? [...(data[ff.k] || [])] : null;
+  const addedF = [];
+  const drawFiles = () => {
+    $('#flList', el).innerHTML = files.map(f => `<div class="frow"><span class="grow clip tap" data-act="openFile" data-id="${f.id}">${fileIcon(f)} ${esc(f.name)}</span><span class="small muted">${fsize(f.size)}</span><button type="button" data-rmf="${f.id}" aria-label="Bỏ tệp">×</button></div>`).join('');
+  };
+  if (ff) {
+    drawFiles();
+    $('#flFile', el).onchange = async e => {
+      for (const file of e.target.files) {
+        if (file.size > 30e6) { toast('Tệp quá lớn (tối đa 30 MB)'); continue; }
+        try {
+          const blob = await shrinkImage(file), id = uid();
+          await DB.set('files', id, blob);
+          files.push({ id, name: file.name, type: blob.type || file.type, size: blob.size }); addedF.push(id);
+        } catch (err) { toast('Không lưu được tệp — bộ nhớ đầy?'); }
+      }
+      e.target.value = ''; drawFiles();
+    };
+    $('#flList', el).addEventListener('click', e => { const id = e.target.dataset.rmf; if (id) { files = files.filter(x => x.id !== id); drawFiles(); } });
+  }
+  if (pf || ff) sheetCleanup = () => { added.forEach(id => DB.del('photos', id)); addedF.forEach(id => DB.del('files', id)); };
+  formFiles = () => files || [];
   form.onsubmit = e => {
     e.preventDefault();
     const out = {};
     for (const f of fields) {
       if (f.type === 'photos') { out[f.k] = photos; continue; }
+      if (f.type === 'files') { out[f.k] = files; continue; }
       const v = form.elements[f.k].value.trim();
       if (f.required && !v) { toast(`Vui lòng nhập: ${f.label}`); form.elements[f.k].focus(); return; }
       out[f.k] = f.type === 'money' ? num(v) : f.type === 'number' ? dec(v) : v;
     }
     if (pf) (data[pf.k] || []).filter(id => !photos.includes(id)).forEach(id => DB.del('photos', id));
+    if (ff) (data[ff.k] || []).filter(o => !files.some(x => x.id === o.id)).forEach(o => DB.del('files', o.id));
     onSave(out); closeSheet(true); save(); render(); toast('Đã lưu');
   };
   if (onDelete) $('#fDel', el).onclick = () => { if (confirm('Xóa mục này?')) { onDelete(); closeSheet(); save(); render(); toast('Đã xóa'); } };
@@ -356,7 +427,8 @@ function formProject(id) {
     onSave: v => { if (p) Object.assign(p, v); else S.projects.unshift({ id: uid(), ...v }); },
     onDelete: p && (() => {
       S.logs.filter(l => l.projectId === id).forEach(l => (l.photos || []).forEach(ph => DB.del('photos', ph)));
-      for (const k of ['quotes', 'logs', 'costs']) S[k] = S[k].filter(x => x.projectId !== id);
+      S.docs.filter(d => d.projectId === id).forEach(d => (d.files || []).forEach(f => DB.del('files', f.id)));
+      for (const k of ['quotes', 'logs', 'costs', 'docs']) S[k] = S[k].filter(x => x.projectId !== id);
       S.projects = S.projects.filter(x => x.id !== id);
       if (S.ui.pid === id) S.ui.pid = '';
     }),
@@ -398,6 +470,38 @@ function formCost(id) {
     onSave: v => { if (c) Object.assign(c, v); else S.costs.push({ id: uid(), ...v }); },
     onDelete: c && (() => { S.costs = S.costs.filter(x => x.id !== id); }),
   });
+}
+
+function formDoc(id) {
+  if (!needProject()) return;
+  const d = S.docs.find(x => x.id === id);
+  openForm({
+    title: d ? 'Sửa hồ sơ' : 'Lưu hồ sơ mới', data: d || { projectId: S.ui.pid || S.projects[0].id, date: today(), type: S.ui.dtype || DOC_TYPES[0], files: [] },
+    fields: [
+      { k: 'type', label: 'Loại hồ sơ', type: 'select', options: DOC_TYPES.map(x => [x, x]) },
+      { k: 'projectId', label: 'Dự án', type: 'select', options: projOptions() },
+      { k: 'title', label: 'Tên / nội dung', ph: 'VD: Hợp đồng thi công phần thô' },
+      { k: 'no', label: 'Số văn bản', half: true, ph: 'VD: 01/2026/HĐTC' }, { k: 'date', label: 'Ngày ký / lập', type: 'date', half: true },
+      { k: 'party', label: 'Bên liên quan / người ký' },
+      { k: 'amount', label: 'Giá trị (₫) – nếu có', type: 'money' },
+      { k: 'note', label: 'Ghi chú', type: 'textarea', rows: 2 },
+      { k: 'files', label: 'Tệp đính kèm (ảnh chụp, PDF, Word, Excel…)', type: 'files' },
+    ],
+    onSave: v => { if (d) Object.assign(d, v); else S.docs.push({ id: uid(), ...v }); },
+    onDelete: d && (() => { (d.files || []).forEach(f => DB.del('files', f.id)); S.docs = S.docs.filter(x => x.id !== id); }),
+  });
+}
+async function openFile(id) {
+  const meta = [...S.docs.flatMap(d => d.files || []), ...formFiles()].find(f => f.id === id);
+  const blob = await DB.get('files', id).catch(() => null);
+  if (!meta || !blob) return toast('Không tìm thấy tệp trên thiết bị này');
+  const url = URL.createObjectURL(blob);
+  if (/^image\//.test(meta.type)) { $('#viewer img').src = url; $('#viewer').hidden = false; return; }
+  const a = document.createElement('a');
+  a.href = url; a.target = '_blank'; a.rel = 'noopener';
+  if (!/pdf/.test(meta.type)) a.download = meta.name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 120000);
 }
 
 // ---------- Trình lập báo giá ----------
@@ -546,15 +650,18 @@ function downloadCSV(name, rows) {
 async function backup() {
   const photos = {};
   for (const l of S.logs) for (const id of l.photos || []) photos[id] = await getPhoto(id);
-  download(`sao-luu-xay-dung-${today()}.json`, new Blob([JSON.stringify({ app: 'qlxd', v: 1, state: S, photos })], { type: 'application/json' }));
+  const files = {};
+  for (const d of S.docs) for (const f of d.files || []) { const b = await DB.get('files', f.id); if (b) files[f.id] = await blobToDataURL(b); }
+  download(`sao-luu-xay-dung-${today()}.json`, new Blob([JSON.stringify({ app: 'qlxd', v: 2, state: S, photos, files })], { type: 'application/json' }));
 }
 async function restore(file) {
   try {
     const d = JSON.parse(await file.text());
     if (d.app !== 'qlxd' || !d.state || !Array.isArray(d.state.projects)) throw 0;
     if (!confirm('Nhập file này sẽ thay thế toàn bộ dữ liệu hiện tại. Tiếp tục?')) return;
-    await DB.clear('photos'); photoCache.clear();
+    await DB.clear('photos'); await DB.clear('files'); photoCache.clear();
     for (const [id, src] of Object.entries(d.photos || {})) if (typeof src === 'string' && src.startsWith('data:image/')) await DB.set('photos', id, src);
+    for (const [id, src] of Object.entries(d.files || {})) if (typeof src === 'string' && src.startsWith('data:')) await DB.set('files', id, await (await fetch(src)).blob());
     S = { ...blank(), ...d.state, settings: { ...blank().settings, ...d.state.settings }, ui: blank().ui };
     save(); render(); toast('Đã khôi phục dữ liệu');
   } catch (e) { toast('File sao lưu không hợp lệ'); }
@@ -588,21 +695,24 @@ function sampleData() {
 const ACT = {
   tab: d => { S.ui.tab = d.id; save(); render(); window.scrollTo(0, 0); },
   go: d => { S.ui.pid = d.id; S.ui.tab = d.tab; save(); render(); window.scrollTo(0, 0); },
-  add: () => ({ projects: formProject, quotes: formQuote, logs: formLog, costs: formCost }[S.ui.tab] || formProject)(),
-  editProject: d => formProject(d.id), editQuote: d => formQuote(d.id), editLog: d => formLog(d.id), editCost: d => formCost(d.id),
+  add: () => ({ projects: formProject, quotes: formQuote, logs: formLog, costs: formCost, docs: formDoc }[S.ui.tab] || formProject)(),
+  editProject: d => formProject(d.id), editQuote: d => formQuote(d.id), editLog: d => formLog(d.id), editCost: d => formCost(d.id), editDoc: d => formDoc(d.id),
+  dtype: d => { S.ui.dtype = d.id; save(); render(); },
+  openFile: d => openFile(d.id),
+  pickFile: () => $('#flFile').click(),
   ctype: d => { S.ui.ctype = d.id; save(); render(); },
   closeSheet: () => closeSheet(),
   pickPhoto: () => $('#phFile').click(),
   viewPhoto: (d, el) => { if (el.src) { $('#viewer img').src = el.src; $('#viewer').hidden = false; } },
-  closeViewer: () => { $('#viewer').hidden = true; },
+  closeViewer: () => { $('#viewer').hidden = true; const i = $('#viewer img'); if (i.src.startsWith('blob:')) URL.revokeObjectURL(i.src); i.removeAttribute('src'); },
   printLogs, backup, sample: sampleData,
   restore: () => $('#restoreFile').click(),
   csvCosts: () => downloadCSV(`thu-chi-${today()}.csv`, [['Ngày', 'Dự án', 'Loại', 'Nhóm', 'Nội dung', 'Nhà cung cấp', 'Số tiền'],
     ...S.costs.filter(inScope).sort(byDateDesc).map(c => [fdate(c.date), pname(c.projectId), c.type === 'thu' ? 'Thu' : 'Chi', c.type === 'thu' ? '' : c.cat, c.desc, c.vendor, c.type === 'thu' ? c.amount : -c.amount])]),
   wipe: async () => {
-    if (!confirm('Xóa TOÀN BỘ dự án, báo giá, nhật ký và chi phí trên thiết bị này?')) return;
+    if (!confirm('Xóa TOÀN BỘ dự án, báo giá, nhật ký, chi phí và hồ sơ trên thiết bị này?')) return;
     const settings = S.settings; S = blank(); S.settings = settings; S.ui.tab = 'settings';
-    await DB.clear('photos'); photoCache.clear(); save(); render(); toast('Đã xóa dữ liệu');
+    await DB.clear('photos'); await DB.clear('files'); photoCache.clear(); save(); render(); toast('Đã xóa dữ liệu');
   },
 };
 document.addEventListener('click', e => {
