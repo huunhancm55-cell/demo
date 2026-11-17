@@ -6,6 +6,7 @@
 - **Báo giá** – lập nhanh từ mẫu hạng mục, tự tính giảm giá/VAT, đọc số tiền bằng chữ, in / lưu PDF, xuất Excel (CSV).
 - **Nhật ký thi công** – thời tiết, nhân công, công việc, vướng mắc, ảnh hiện trường; in báo cáo.
 - **Chi phí** – ghi thu chi theo nhóm (vật tư, nhân công, thầu phụ…), cơ cấu chi phí, xuất Excel.
+- **Hồ sơ** – lưu ảnh chụp / file hợp đồng, phiếu đề nghị cấp vật tư, biên bản nghiệm thu, giấy tạm ứng, giấy ủy quyền theo từng dự án.
 - **Sao lưu / khôi phục** bằng file JSON để chuyển dữ liệu giữa các thiết bị.
 
 Đây là PWA (HTML/CSS/JS thuần, không cần build): chạy offline, dữ liệu lưu trên thiết bị.
