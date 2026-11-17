@@ -79,19 +79,36 @@ let S = blank();
 let saveTimer;
 function save() {
   clearTimeout(saveTimer);
-  saveTimer = setTimeout(() => DB.set('kv', 'state', S).catch(() => toast('Không lưu được dữ liệu — bộ nhớ đầy?')), 150);
+  saveTimer = setTimeout(() => { saveTimer = 0; DB.set('kv', 'state', S).catch(() => toast('Không lưu được dữ liệu — bộ nhớ đầy?')); }, 150);
+  if (window.Sync) Sync.changed();
 }
+// Đóng hoặc chuyển ứng dụng ngay sau khi bấm Lưu: ghi ngay, không chờ
+function flushSave() {
+  if (!saveTimer) return;
+  clearTimeout(saveTimer); saveTimer = 0;
+  DB.set('kv', 'state', S).catch(() => {});
+}
+addEventListener('pagehide', flushSave);
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') flushSave(); });
 
-const photoCache = new Map();
-async function getPhoto(id) {
-  if (!photoCache.has(id)) photoCache.set(id, await DB.get('photos', id));
-  return photoCache.get(id);
+const photoCache = new Map(), photoWait = new Map();
+// Ảnh chưa có trên máy này (chụp từ máy khác) được tải từ máy chủ đồng bộ khi cần
+function getPhoto(id) {
+  if (photoCache.has(id)) return Promise.resolve(photoCache.get(id));
+  if (!photoWait.has(id)) photoWait.set(id, (async () => {
+    let v = await DB.get('photos', id).catch(() => null);
+    if (!v && window.Sync) v = await Sync.fetchPhoto(id);
+    if (v) photoCache.set(id, v);
+    photoWait.delete(id);
+    return v;
+  })());
+  return photoWait.get(id);
 }
-async function hydratePhotos(root = document) {
-  for (const img of $$('img[data-ph]', root)) {
+function hydratePhotos(root = document) {
+  return Promise.all($$('img[data-ph]', root).map(async img => {
     const src = await getPhoto(img.dataset.ph);
     if (src) img.src = src;
-  }
+  }));
 }
 function compressImage(file, max = 1280) {
   return new Promise((res, rej) => {
@@ -292,6 +309,7 @@ const VIEWS = {
   settings() {
     const s = S.settings;
     return `<div class="list">
+    ${window.Sync ? Sync.card() : ''}
     <div class="card"><div class="bold mb">Thông tin công ty <span class="small muted" style="font-weight:400">(in trên báo giá)</span></div>
       <div class="fields">
         <div class="full"><label>Tên công ty / nhà thầu</label><input data-set="company" value="${esc(s.company)}" placeholder="Công ty TNHH Xây dựng ABC"></div>
@@ -302,7 +320,7 @@ const VIEWS = {
     <div class="card"><div class="bold mb">Dữ liệu</div>
       <p class="small muted mb">Dữ liệu được lưu ngay trên thiết bị này, không cần mạng. Hãy xuất file sao lưu định kỳ, hoặc dùng file sao lưu để chuyển dữ liệu giữa điện thoại và máy tính.</p>
       <div class="btns"><button class="btn" data-act="backup">⬇ Xuất sao lưu</button><button class="btn" data-act="restore">⬆ Nhập sao lưu</button>
-      <button class="btn" data-act="sample">Thêm dữ liệu mẫu</button><button class="btn danger" data-act="wipe">Xóa toàn bộ</button></div>
+      ${window.Sync?.signedIn() ? '' : '<button class="btn" data-act="sample">Thêm dữ liệu mẫu</button>'}<button class="btn danger" data-act="wipe">${window.Sync?.signedIn() ? 'Xóa dữ liệu trên máy này' : 'Xóa toàn bộ'}</button></div>
       <input type="file" id="restoreFile" accept=".json,application/json" hidden></div>
     <div class="card"><div class="bold mb">Cài đặt ứng dụng</div>
       <p class="small pre"><b>iPhone / iPad:</b> mở trang này bằng Safari → nút Chia sẻ → "Thêm vào Màn hình chính".
@@ -493,8 +511,10 @@ function formDoc(id) {
 }
 async function openFile(id) {
   const meta = [...S.docs.flatMap(d => d.files || []), ...formFiles()].find(f => f.id === id);
-  const blob = await DB.get('files', id).catch(() => null);
-  if (!meta || !blob) return toast('Không tìm thấy tệp trên thiết bị này');
+  if (!meta) return toast('Không tìm thấy tệp');
+  let blob = await DB.get('files', id).catch(() => null);
+  if (!blob && window.Sync?.signedIn()) { toast('Đang tải tệp…'); blob = await Sync.fetchFile(id); }
+  if (!blob) return toast('Không tìm thấy tệp trên thiết bị này');
   const url = URL.createObjectURL(blob);
   if (/^image\//.test(meta.type)) { $('#viewer img').src = url; $('#viewer').hidden = false; return; }
   const a = document.createElement('a');
@@ -658,11 +678,14 @@ async function restore(file) {
   try {
     const d = JSON.parse(await file.text());
     if (d.app !== 'qlxd' || !d.state || !Array.isArray(d.state.projects)) throw 0;
-    if (!confirm('Nhập file này sẽ thay thế toàn bộ dữ liệu hiện tại. Tiếp tục?')) return;
+    if (!confirm(window.Sync?.signedIn()
+      ? 'Nhập file này sẽ thay dữ liệu trên máy này, rồi gộp với dữ liệu chung trên máy chủ (bản trên máy chủ được ưu tiên, không mục nào trên máy chủ bị xóa). Tiếp tục?'
+      : 'Nhập file này sẽ thay thế toàn bộ dữ liệu hiện tại. Tiếp tục?')) return;
     await DB.clear('photos'); await DB.clear('files'); photoCache.clear();
     for (const [id, src] of Object.entries(d.photos || {})) if (typeof src === 'string' && src.startsWith('data:image/')) await DB.set('photos', id, src);
     for (const [id, src] of Object.entries(d.files || {})) if (typeof src === 'string' && src.startsWith('data:')) await DB.set('files', id, await (await fetch(src)).blob());
     S = { ...blank(), ...d.state, settings: { ...blank().settings, ...d.state.settings }, ui: blank().ui };
+    if (window.Sync) await Sync.reset(false);
     save(); render(); toast('Đã khôi phục dữ liệu');
   } catch (e) { toast('File sao lưu không hợp lệ'); }
 }
@@ -710,9 +733,14 @@ const ACT = {
   csvCosts: () => downloadCSV(`thu-chi-${today()}.csv`, [['Ngày', 'Dự án', 'Loại', 'Nhóm', 'Nội dung', 'Nhà cung cấp', 'Số tiền'],
     ...S.costs.filter(inScope).sort(byDateDesc).map(c => [fdate(c.date), pname(c.projectId), c.type === 'thu' ? 'Thu' : 'Chi', c.type === 'thu' ? '' : c.cat, c.desc, c.vendor, c.type === 'thu' ? c.amount : -c.amount])]),
   wipe: async () => {
-    if (!confirm('Xóa TOÀN BỘ dự án, báo giá, nhật ký, chi phí và hồ sơ trên thiết bị này?')) return;
+    const online = window.Sync?.signedIn();
+    if (!confirm(online
+      ? 'Xóa toàn bộ dữ liệu trên MÁY NÀY và đăng xuất? Dữ liệu chung trên máy chủ và các máy khác vẫn giữ nguyên.'
+      : 'Xóa TOÀN BỘ dự án, báo giá, nhật ký, chi phí và hồ sơ trên thiết bị này?')) return;
     const settings = S.settings; S = blank(); S.settings = settings; S.ui.tab = 'settings';
-    await DB.clear('photos'); await DB.clear('files'); photoCache.clear(); save(); render(); toast('Đã xóa dữ liệu');
+    await DB.clear('photos'); await DB.clear('files'); photoCache.clear();
+    if (window.Sync) await Sync.reset(true);
+    save(); render(); toast('Đã xóa dữ liệu trên máy này');
   },
 };
 document.addEventListener('click', e => {
@@ -739,6 +767,7 @@ window.addEventListener('afterprint', () => { $('#print').innerHTML = ''; });
   } catch (e) { /* bắt đầu với dữ liệu trống */ }
   if (S.ui.pid && !proj(S.ui.pid)) S.ui.pid = '';
   render();
+  if (window.Sync) Sync.init();
   navigator.storage?.persist?.().catch(() => {});
   if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js').catch(() => {});
 })();
