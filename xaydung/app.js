@@ -72,7 +72,7 @@ const DB = {
 
 const blank = () => ({
   projects: [], quotes: [], logs: [], costs: [],
-  settings: { company: '', phone: '', address: '', tax: '' },
+  settings: { company: 'Công ty TNHH MTV Xây dựng Thương mại Hữu Nhân', phone: '0914 580 385', address: '364 Quang Trung, khóm 20, P. Tân Thành, Cà Mau', tax: '2001297621' },
   ui: { tab: 'projects', pid: '', ctype: '' },
 });
 let S = blank();
@@ -151,7 +151,7 @@ function toast(msg) {
 }
 function render() {
   const tab = S.ui.tab;
-  $('#nav').innerHTML = `<div class="brand"><img src="icon.svg" alt="">QL Xây dựng</div>` + TABS.map(([k, t, ic]) =>
+  $('#nav').innerHTML = `<div class="brand"><img src="icon.svg" alt=""><span><b>HỮU NHÂN</b><small>Quản lý công trình</small></span></div>` + TABS.map(([k, t, ic]) =>
     `<button data-act="tab" data-id="${k}" class="${k === tab ? 'on' : ''}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${ic}</svg>${t}</button>`).join('');
   $('#title').textContent = TABS.find(t => t[0] === tab)[1];
   const pf = $('#pfilter');

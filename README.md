@@ -1,4 +1,4 @@
-# Quản lý Xây dựng
+# Hữu Nhân – Quản lý công trình
 
 Ứng dụng quản lý dự án xây dựng gọn nhẹ, nằm trong thư mục [`xaydung/`](xaydung/):
 
