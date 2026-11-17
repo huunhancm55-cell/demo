@@ -4,6 +4,6 @@
 // đăng nhập và danh sách thành viên (xem supabase/setup.sql).
 // Để trống thì có thể nhập trực tiếp trong mục Cài đặt của ứng dụng.
 window.QLXD_CONFIG = {
-  supabaseUrl: '',
-  supabaseKey: '',
+  supabaseUrl: 'https://kecljgutfoudppclytxi.supabase.co',
+  supabaseKey: 'sb_publishable_6dbADYZXA1qwodmZk_q4Ig_8-0qPxdC',
 };
