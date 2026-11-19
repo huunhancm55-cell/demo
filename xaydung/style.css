@@ -162,6 +162,8 @@ label { display: block; font-size: 13px; font-weight: 600; color: var(--muted); 
 .frow button { border: 0; background: none; color: var(--red); font-size: 20px; line-height: 1; padding: 0 4px; }
 /* Ảnh phối cảnh trên thẻ dự án */
 .pcard { overflow: hidden; }
+.pcard .cover.add { display: flex; align-items: center; justify-content: center; aspect-ratio: 16 / 5; border: 0; border-bottom: 1px dashed var(--line); color: var(--muted); font-weight: 600; font-size: 14px; cursor: pointer; }
+.pcard .cover.add:hover { color: var(--accent); }
 .pcard .cover { display: block; width: calc(100% + 28px); max-width: none; margin: -14px -14px 12px; aspect-ratio: 16 / 10; object-fit: cover; object-position: center 40%; background: var(--gray-soft); cursor: zoom-in; }
 
 /* Soạn hợp đồng */

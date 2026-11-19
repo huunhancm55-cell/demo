@@ -292,7 +292,8 @@ const VIEWS = {
       const m = pMoney(p.id), base = p.budget || p.contract, pct = base ? Math.round(m.chi / base * 100) : 0;
       const nq = S.quotes.filter(q => q.projectId === p.id).length, nl = S.logs.filter(l => l.projectId === p.id).length;
       const cover = (p.photos || [])[0];
-      return `<div class="card pcard">${cover ? `<img class="cover" data-ph="${cover}" data-act="viewPhoto" alt="Phối cảnh ${esc(p.name)}">` : ''}
+      return `<div class="card pcard">${cover ? `<img class="cover" data-ph="${cover}" data-act="viewPhoto" alt="Phối cảnh ${esc(p.name)}">`
+        : `<button type="button" class="cover add" data-act="addCover" data-id="${p.id}">📷 Thêm ảnh phối cảnh 3D</button>`}
         <div class="row between tap" data-act="editProject" data-id="${p.id}">
           <div class="grow"><div class="bold clip">${esc(p.name)}</div><div class="small muted clip">${esc([p.client, p.address].filter(Boolean).join(' · ') || 'Chưa có thông tin khách hàng')}</div></div>
           ${badge(P_STATUS[p.status] || P_STATUS.prep)}
@@ -885,7 +886,23 @@ const ACT = {
   tab: d => { S.ui.tab = d.id; save(); render(); window.scrollTo(0, 0); },
   go: d => { S.ui.pid = d.id; S.ui.tab = d.tab; save(); render(); window.scrollTo(0, 0); },
   add: () => ({ projects: formProject, quotes: formQuote, logs: formLog, costs: formCost, docs: formDoc }[S.ui.tab] || formProject)(),
-  editProject: d => formProject(d.id), editQuote: d => formQuote(d.id), editLog: d => formLog(d.id), editCost: d => formCost(d.id), editDoc: d => formDoc(d.id),
+  editProject: d => formProject(d.id),
+  // Thêm ảnh phối cảnh ngay trên thẻ dự án
+  addCover: d => {
+    const inp = document.createElement('input');
+    inp.type = 'file'; inp.accept = 'image/*';
+    inp.onchange = async () => {
+      const p = proj(d.id), file = inp.files[0];
+      if (!p || !file) return;
+      try {
+        const id = uid(), src = await compressImage(file, 1600);
+        await DB.set('photos', id, src); photoCache.set(id, src);
+        p.photos = [id, ...(p.photos || [])];
+        save(); render(); toast('Đã thêm ảnh phối cảnh');
+      } catch (e) { toast('Không thêm được ảnh'); }
+    };
+    inp.click();
+  }, editQuote: d => formQuote(d.id), editLog: d => formLog(d.id), editCost: d => formCost(d.id), editDoc: d => formDoc(d.id),
   dtype: d => { S.ui.dtype = d.id; save(); render(); },
   openFile: d => openFile(d.id),
   pickFile: () => $('#flFile').click(),
