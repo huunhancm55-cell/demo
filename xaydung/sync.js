@@ -52,7 +52,7 @@ const Sync = (() => {
   const blobPaths = rec => [...(rec?.photos || []).map(id => 'p/' + id), ...(rec?.files || []).map(f => 'f/' + f.id)];
   function referencedBlobs() {
     const s = new Set();
-    for (const l of S.logs) blobPaths(l).forEach(p => s.add(p));
+    for (const l of [...S.logs, ...S.projects]) blobPaths(l).forEach(p => s.add(p));
     for (const d of S.docs) blobPaths(d).forEach(p => s.add(p));
     return s;
   }
@@ -96,7 +96,7 @@ const Sync = (() => {
       if (!local || local[0] === 'settings') return false;
       const arr = S[local[0]];
       arr.splice(arr.indexOf(local[1]), 1); cur.delete(id);
-      if (local[0] === 'logs') (local[1].photos || []).forEach(p => DB.del('photos', p));
+      if (local[0] === 'logs' || local[0] === 'projects') (local[1].photos || []).forEach(p => DB.del('photos', p));
       if (local[0] === 'docs') (local[1].files || []).forEach(f => DB.del('files', f.id));
       if (local[0] === 'projects' && S.ui.pid === id) S.ui.pid = '';
       return true;
