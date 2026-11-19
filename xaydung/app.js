@@ -760,12 +760,20 @@ function formQuote(id) {
   $q('#qAddH').onclick = () => { q.items.push({ head: true, name: '' }); drawItems(); $$('.qi .nm', el).pop().focus(); };
   $q('#qTpl').onchange = e => {
     const name = e.target.value;
+    e.target.value = '';
     if (!name) return;
-    q.items = q.items.filter(i => i.head ? (i.name || '').trim() : (i.name || i.price || i.qty || i.area));
-    q.items.push(...TPL[name].map(x => ({ ...x })));
+    const kept = q.items.filter(i => i.head ? (i.name || '').trim() : ((i.name || '').trim() || i.price || i.qty || i.area));
+    // Đã có hạng mục: hỏi thay thế hay thêm vào cuối
+    const replace = kept.length > 0 && confirm(`Báo giá đang có ${kept.length} dòng.\n\nOK = THAY bằng mẫu "${name}"\nHủy = THÊM mẫu vào cuối danh sách`);
+    const first = replace ? 0 : kept.length;
+    q.items = [...(replace ? [] : kept), ...TPL[name].map(x => ({ ...x }))];
     if (TPL[name].some(x => x.coef)) { q.coef = true; $q('#qCoef').checked = true; }
     if (!(q.title || '').trim()) { q.title = 'Báo giá ' + name.toLowerCase(); $q('[data-q=title]').value = q.title; }
-    e.target.value = ''; drawItems();
+    drawItems();
+    const rows = $$('.qi', el).slice(first);
+    rows.forEach(r => r.classList.add('flash'));
+    if (rows[0]) rows[0].scrollIntoView({ block: 'start', behavior: 'smooth' });
+    toast(`${replace ? 'Đã thay bằng' : 'Đã thêm'} ${TPL[name].length} dòng từ mẫu "${name}"`);
   };
   const snapshot = () => cleanQuote(JSON.parse(JSON.stringify(q)));
   const commit = () => {

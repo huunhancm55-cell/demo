@@ -205,6 +205,8 @@ label { display: block; font-size: 13px; font-weight: 600; color: var(--muted); 
 .qi .del { grid-column: 4; grid-row: 1; border: 0; background: none; color: var(--red); font-size: 22px; height: 44px; }
 .qi .tt { grid-column: 1 / -1; text-align: right; font-weight: 700; font-size: 13.5px; }
 .qi input { padding: 8px 10px; }
+.qi.flash { animation: qflash 1.6s ease-out; }
+@keyframes qflash { 0%, 30% { box-shadow: 0 0 0 2px var(--accent); background: var(--accent-soft); } 100% { box-shadow: none; } }
 .qi input[readonly] { background: var(--gray-soft); color: var(--muted); }
 /* Có diện tích × hệ số */
 .qi.k { grid-template-columns: repeat(3, 1fr) 34px; }
