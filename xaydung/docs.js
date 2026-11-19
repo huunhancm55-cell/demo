@@ -38,7 +38,7 @@ const XL = (() => {
     let off = 0;
     const d = new Date(), time = (d.getHours() << 11) | (d.getMinutes() << 5) | (d.getSeconds() >> 1), date = ((d.getFullYear() - 1980) << 9) | ((d.getMonth() + 1) << 5) | d.getDate();
     for (const [name, text] of files) {
-      const nm = enc.encode(name), data = enc.encode(text), crc = crc32(data);
+      const nm = enc.encode(name), data = typeof text === 'string' ? enc.encode(text) : text, crc = crc32(data);
       const h = new DataView(new ArrayBuffer(30));
       h.setUint32(0, 0x04034b50, true); h.setUint16(4, 20, true); h.setUint16(6, 0x0800, true); h.setUint16(8, 0, true);
       h.setUint16(10, time, true); h.setUint16(12, date, true); h.setUint32(14, crc, true);
@@ -87,6 +87,7 @@ const XL = (() => {
     const sheets = [];
     function sheet(name, widths, opt = {}) {
       const rows = new Map(), merges = [], heights = {};
+      let img = null;
       const cell = (r, c) => { if (!rows.has(r)) rows.set(r, new Map()); const m = rows.get(r); if (!m.has(c)) m.set(c, {}); return m.get(c); };
       const sh = {
         name, widths, opt,
@@ -98,6 +99,9 @@ const XL = (() => {
           if (r1 !== r2 || c1 !== c2) merges.push(`${colL(c1)}${r1}:${colL(c2)}${r2}`);
         },
         height(r, h) { heights[r] = h; },
+        // Ảnh PNG neo ở góc trên trái (kích thước tính bằng điểm ảnh)
+        image(png, w, h) { img = { png, w, h }; },
+        get img() { return img; },
         xml() {
           const rr = [...rows.keys()].sort((a, b) => a - b).map(r => {
             const cs = [...rows.get(r).entries()].sort((a, b) => a[0] - b[0]).map(([c, x]) => {
@@ -110,7 +114,7 @@ const XL = (() => {
             return `<row r="${r}"${heights[r] ? ` ht="${heights[r]}" customHeight="1"` : ''}>${cs}</row>`;
           }).join('');
           return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheetPr><pageSetUpPr fitToPage="1"/></sheetPr><sheetViews><sheetView workbookViewId="0" showGridLines="0"/></sheetViews><sheetFormatPr defaultRowHeight="16"/><cols>${widths.map((w, i) => `<col min="${i + 1}" max="${i + 1}" width="${w}" customWidth="1"/>`).join('')}</cols><sheetData>${rr}</sheetData>${merges.length ? `<mergeCells count="${merges.length}">${merges.map(m => `<mergeCell ref="${m}"/>`).join('')}</mergeCells>` : ''}<printOptions horizontalCentered="1"/><pageMargins left="0.4" right="0.4" top="0.5" bottom="0.5" header="0.3" footer="0.3"/><pageSetup paperSize="9" orientation="${opt.landscape ? 'landscape' : 'portrait'}" fitToWidth="1" fitToHeight="0"/></worksheet>`;
+<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheetPr><pageSetUpPr fitToPage="1"/></sheetPr><sheetViews><sheetView workbookViewId="0" showGridLines="0"/></sheetViews><sheetFormatPr defaultRowHeight="16"/><cols>${widths.map((w, i) => `<col min="${i + 1}" max="${i + 1}" width="${w}" customWidth="1"/>`).join('')}</cols><sheetData>${rr}</sheetData>${merges.length ? `<mergeCells count="${merges.length}">${merges.map(m => `<mergeCell ref="${m}"/>`).join('')}</mergeCells>` : ''}<printOptions horizontalCentered="1"/><pageMargins left="0.4" right="0.4" top="0.5" bottom="0.5" header="0.3" footer="0.3"/><pageSetup paperSize="9" orientation="${opt.landscape ? 'landscape' : 'portrait'}" fitToWidth="1" fitToHeight="0"/>${img ? '<drawing r:id="rId1"/>' : ''}</worksheet>`;
         },
       };
       sheets.push(sh);
@@ -119,7 +123,7 @@ const XL = (() => {
     function blob() {
       const files = [
         ['[Content_Types].xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>${sheets.map((_, i) => `<Override PartName="/xl/worksheets/sheet${i + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join('')}<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>`],
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Default Extension="png" ContentType="image/png"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>${sheets.map((s, i) => `<Override PartName="/xl/worksheets/sheet${i + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>${s.img ? `<Override PartName="/xl/drawings/drawing${i + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.drawing+xml"/>` : ''}`).join('')}<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>`],
         ['_rels/.rels', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`],
         ['xl/workbook.xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
@@ -127,6 +131,15 @@ const XL = (() => {
         ['xl/_rels/workbook.xml.rels', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${sheets.map((_, i) => `<Relationship Id="rId${i + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${i + 1}.xml"/>`).join('')}<Relationship Id="rId${sheets.length + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`],
         ...sheets.map((s, i) => [`xl/worksheets/sheet${i + 1}.xml`, s.xml()]),
+        ...sheets.flatMap((s, i) => s.img ? [
+          [`xl/worksheets/_rels/sheet${i + 1}.xml.rels`, `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing" Target="../drawings/drawing${i + 1}.xml"/></Relationships>`],
+          [`xl/drawings/drawing${i + 1}.xml`, `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<xdr:wsDr xmlns:xdr="http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><xdr:oneCellAnchor><xdr:from><xdr:col>0</xdr:col><xdr:colOff>57150</xdr:colOff><xdr:row>0</xdr:row><xdr:rowOff>38100</xdr:rowOff></xdr:from><xdr:ext cx="${s.img.w * 9525}" cy="${s.img.h * 9525}"/><xdr:pic><xdr:nvPicPr><xdr:cNvPr id="2" name="Logo"/><xdr:cNvPicPr><a:picLocks noChangeAspect="1"/></xdr:cNvPicPr></xdr:nvPicPr><xdr:blipFill><a:blip r:embed="rId1"/><a:stretch><a:fillRect/></a:stretch></xdr:blipFill><xdr:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${s.img.w * 9525}" cy="${s.img.h * 9525}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></xdr:spPr></xdr:pic><xdr:clientData/></xdr:oneCellAnchor></xdr:wsDr>`],
+          [`xl/drawings/_rels/drawing${i + 1}.xml.rels`, `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/image${i + 1}.png"/></Relationships>`],
+          [`xl/media/image${i + 1}.png`, s.img.png],
+        ] : []),
         ['xl/styles.xml', stylesXml()],
       ];
       return zip(files, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
@@ -160,7 +173,8 @@ function quoteXlsx(q) {
   const widthAll = W.reduce((a, b) => a + b, 0);
   let r = 1;
   const full = (text, style, ht) => { sh.merge(r, 0, r, last, style); sh.put(r, 0, text, style); if (ht) sh.height(r, ht); r++; };
-  full((s.company || '').toUpperCase(), st.co, 22);
+  if (LOGO_PNG) sh.image(LOGO_PNG.bytes, 96, Math.round(96 * LOGO_PNG.h / LOGO_PNG.w));
+  full((s.company || '').toUpperCase(), st.co, 26);
   if (s.address) full(`Địa chỉ: ${s.address}`, st.lineB);
   full([s.phone && `Hotline/Zalo: ${s.phone}`, s.tax && `MST: ${s.tax}`].filter(Boolean).join('    ·    '), st.line);
   r++;
@@ -269,7 +283,10 @@ function costsXlsx(list) {
 }
 
 // ======================= Bản in báo giá / khái toán =======================
-const HN_LOGO = `<div class="logo"><svg viewBox="0 0 120 60" aria-hidden="true"><g fill="none" stroke="#2f3237" stroke-width="3" stroke-linejoin="round"><path d="M8 56h104"/><path d="M18 56V30h46v26"/><path d="M12 30h58"/><path d="M58 30V12h46v44"/><path d="M52 12h58"/><path d="M66 21h30M66 29h30M66 37h30"/><path d="M28 56V40h12v16M48 40h10v9H48z"/></g></svg><div class="nm">HỮU NHÂN</div><div class="tg">THIẾT KẾ &amp; XÂY DỰNG</div></div>`;
+const HN_LOGO = `<div class="logo"><img src="logo.png" alt="Hữu Nhân – Thiết kế &amp; Xây dựng"></div>`;
+// Nạp sẵn logo để chèn vào Excel (file nằm trong bộ nhớ đệm nên dùng được khi mất mạng)
+let LOGO_PNG = null;
+fetch('logo.png').then(r => (r.ok ? r.arrayBuffer() : null)).then(b => { if (b) LOGO_PNG = { bytes: new Uint8Array(b), w: 480, h: 350 }; }).catch(() => {});
 
 function itemsTableHTML(q, t, K) {
   const head = K ? '<th class="c">STT</th><th>Nội dung công việc</th><th class="r">Diện tích (m²)</th><th class="r">Hệ số</th><th class="r">KL quy đổi</th><th class="r">Đơn giá (VNĐ)</th><th class="r">Thành tiền (VNĐ)</th>'

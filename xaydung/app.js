@@ -790,8 +790,11 @@ function formQuote(id) {
 
 // ---------- In & xuất file ----------
 function printHTML(html) {
-  $('#print').innerHTML = html;
-  setTimeout(() => window.print(), 50);
+  const box = $('#print');
+  box.innerHTML = html;
+  // Chờ ảnh (logo) tải xong rồi mới mở hộp thoại in
+  const wait = $$('img', box).filter(i => !i.complete).map(i => new Promise(r => { i.onload = i.onerror = r; }));
+  Promise.race([Promise.all(wait), new Promise(r => setTimeout(r, 3000))]).then(() => setTimeout(() => window.print(), 50));
 }
 function companyHead() {
   const s = S.settings;

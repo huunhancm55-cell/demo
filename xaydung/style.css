@@ -265,7 +265,7 @@ label.chk input { width: 18px; min-height: 18px; height: 18px; margin: 0; }
   #print .hn, #print .hn * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   #print .hn { font: 13px/1.45 "Be Vietnam Pro", Arial, sans-serif; background: #f6f2e9; border: 1px solid #e4dccb; border-radius: 16px; padding: 22px 30px; color: #262a30; }
   #print .hn .logo { text-align: center; color: #2f3237; }
-  #print .hn .logo svg { width: 86px; height: 44px; display: inline-block; }
+  #print .hn .logo img { width: 150px; height: auto; display: inline-block; }
   #print .hn .logo .nm { font: 600 16px/1.1 "Times New Roman", serif; letter-spacing: .08em; }
   #print .hn .logo .tg { font-size: 7px; letter-spacing: .22em; }
   #print .hn h1 { font-size: 30px; font-weight: 800; text-align: center; margin: 8px 0 2px; letter-spacing: -.01em; line-height: 1.15; }
