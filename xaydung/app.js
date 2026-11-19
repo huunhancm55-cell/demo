@@ -674,9 +674,25 @@ async function backup() {
   for (const d of S.docs) for (const f of d.files || []) { const b = await DB.get('files', f.id); if (b) files[f.id] = await blobToDataURL(b); }
   download(`sao-luu-xay-dung-${today()}.json`, new Blob([JSON.stringify({ app: 'qlxd', v: 2, state: S, photos, files })], { type: 'application/json' }));
 }
+// Gói dự án: chỉ THÊM các mục chưa có (theo mã), không xóa hay ghi đè dữ liệu hiện có
+async function importPackage(d) {
+  const kinds = ['projects', 'quotes', 'logs', 'costs', 'docs'];
+  const add = {};
+  for (const k of kinds) add[k] = (Array.isArray(d[k]) ? d[k] : []).filter(r => r && typeof r.id === 'string' && !S[k].some(x => x.id === r.id));
+  const total = kinds.reduce((t, k) => t + add[k].length, 0);
+  if (!total) return toast('Các mục trong file này đã có sẵn, không có gì để thêm');
+  const names = add.projects.map(p => p.name).filter(Boolean).join(', ');
+  if (!confirm(`Thêm ${total} mục${names ? ` (dự án: ${names})` : ''} vào dữ liệu hiện có? Không xóa hay ghi đè mục nào.`)) return;
+  const ph = new Set(add.logs.flatMap(l => l.photos || [])), fl = new Set(add.docs.flatMap(x => (x.files || []).map(f => f.id)));
+  for (const [id, src] of Object.entries(d.photos || {})) if (ph.has(id) && typeof src === 'string' && src.startsWith('data:image/')) await DB.set('photos', id, src);
+  for (const [id, src] of Object.entries(d.files || {})) if (fl.has(id) && typeof src === 'string' && src.startsWith('data:')) await DB.set('files', id, await (await fetch(src)).blob());
+  for (const k of kinds) S[k].push(...add[k]);
+  save(); render(); toast(`Đã thêm ${total} mục`);
+}
 async function restore(file) {
   try {
     const d = JSON.parse(await file.text());
+    if (d.app === 'qlxd' && d.pkg === 1) return await importPackage(d);
     if (d.app !== 'qlxd' || !d.state || !Array.isArray(d.state.projects)) throw 0;
     if (!confirm(window.Sync?.signedIn()
       ? 'Nhập file này sẽ thay dữ liệu trên máy này, rồi gộp với dữ liệu chung trên máy chủ (bản trên máy chủ được ưu tiên, không mục nào trên máy chủ bị xóa). Tiếp tục?'

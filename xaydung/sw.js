@@ -1,5 +1,5 @@
 // Service worker: cho phép ứng dụng chạy khi không có mạng
-const CACHE = 'qlxd-v5';
+const CACHE = 'qlxd-v6';
 const FILES = ['./', 'index.html', 'style.css', 'app.js', 'sync.js', 'config.js', 'vendor/supabase-js-2.118.0.js', 'manifest.webmanifest', 'icon.svg', 'icon-180.png', 'icon-192.png', 'icon-512.png'];
 
 self.addEventListener('install', e => {
