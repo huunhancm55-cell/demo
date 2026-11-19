@@ -32,7 +32,7 @@ function docSo(n) {
     let s = (t || full) ? d[t] + ' trăm' : '';
     if (c > 1) s += ' ' + d[c] + ' mươi' + (v === 1 ? ' mốt' : v === 5 ? ' lăm' : v ? ' ' + d[v] : '');
     else if (c === 1) s += ' mười' + (v === 5 ? ' lăm' : v ? ' ' + d[v] : '');
-    else if (v) s += ((t || full) ? ' lẻ ' : ' ') + d[v];
+    else if (v) s += ((t || full) ? ' linh ' : ' ') + d[v];
     return s.trim();
   };
   const g = [];
@@ -162,22 +162,94 @@ const Q_STATUS = { draft: ['Nháp', ''], sent: ['Đã gửi', 'blue'], approved:
 const CATS = ['Vật tư', 'Nhân công', 'Máy thi công', 'Thầu phụ', 'Vận chuyển', 'Khác'];
 const DOC_TYPES = ['Hợp đồng', 'Phiếu đề nghị cấp vật tư', 'Biên bản nghiệm thu', 'Giấy tạm ứng', 'Giấy ủy quyền', 'Khác'];
 const WEATHER = ['☀️ Nắng', '⛅ Mát', '🌧️ Mưa', '⛈️ Mưa to'];
+// Mẫu hạng mục: T(tên, ĐVT, hệ số %, khối lượng) — có hệ số thì khối lượng = diện tích × hệ số; G(tên) là dòng nhóm
+const T = (name, unit = 'm²', coef = 0, qty = 0) => ({ name, unit, qty, price: 0, ...(coef ? { area: 0, coef } : {}) });
+const G = name => ({ head: true, name });
 const TPL = {
-  'Phần thô nhà phố': [['Đào móng, vận chuyển đất', 'm³'], ['Bê tông móng, đà kiềng', 'm³'], ['Cốt thép móng, cột, dầm, sàn', 'tấn'], ['Bê tông cột, dầm, sàn', 'm³'], ['Xây tường gạch', 'm²'], ['Tô trát tường', 'm²'], ['Chống thấm sàn mái, WC', 'm²'], ['Hệ thống điện nước âm', 'm² sàn']],
-  'Hoàn thiện': [['Ốp lát gạch nền', 'm²'], ['Ốp gạch tường WC', 'm²'], ['Sơn nước nội thất', 'm²'], ['Sơn nước ngoại thất', 'm²'], ['Trần thạch cao', 'm²'], ['Cửa đi, cửa sổ', 'm²'], ['Lan can, cầu thang', 'md'], ['Thiết bị vệ sinh', 'bộ'], ['Thiết bị điện, đèn', 'gói']],
-  'Nội thất': [['Tủ bếp trên + dưới', 'md'], ['Tủ quần áo', 'm²'], ['Giường ngủ', 'cái'], ['Kệ tivi', 'md'], ['Bàn làm việc', 'cái'], ['Vận chuyển, lắp đặt', 'gói']],
-  'Sửa chữa cải tạo': [['Tháo dỡ, đục phá', 'm²'], ['Vận chuyển xà bần', 'chuyến'], ['Xây tô lại', 'm²'], ['Chống thấm', 'm²'], ['Sơn lại toàn bộ', 'm²'], ['Thay mới điện nước', 'gói']],
+  'Thiết kế kiến trúc': [T('Tầng trệt', 'm²', 100), T('Tầng lầu', 'm²', 100), T('Sân thượng, ban công không mái', 'm²', 50), T('Mái bê tông', 'm²', 50), T('Mái tôn, mái ngói', 'm²', 30)],
+  'Nhân công thô + hoàn thiện': [G('NHÂN CÔNG THÔ + HOÀN THIỆN'), T('Diện tích sân (trước + sau)'), T('Tường rào, cổng', 'md'), T('Diện tích trệt'), T('Diện tích sàn lầu (gồm ban công)'), T('Diện tích tum (phòng SHC + thang)'), T('Diện tích sàn mái (sân thượng + mái tum)')],
+  'Phần thô + NC hoàn thiện': [G('PHẦN THÔ + NHÂN CÔNG HOÀN THIỆN'), T('Phần móng', 'm²', 20), T('Diện tích trệt', 'm²', 100), T('Diện tích sàn lầu', 'm²', 100), T('Sân thượng', 'm²', 50), T('Mái', 'm²', 30), G('SÂN + HẠNG MỤC PHỤ'), T('Diện tích sân'), T('Tường rào, cổng', 'md')],
+  'Khái toán trọn gói': [G('NHÀ CHÍNH'), T('Phần móng', 'm²', 20), T('Diện tích trệt', 'm²', 100), T('Diện tích sàn lầu', 'm²', 100), T('Mái', 'm²', 30), T('Móng cọc (dự kiến)', 'gói', 0, 1), G('SÂN + HẠNG MỤC PHỤ'), T('Diện tích sân'), T('Hàng rào + cổng', 'md')],
+  'Phần thô nhà phố': [T('Đào móng, vận chuyển đất', 'm³'), T('Bê tông móng, đà kiềng', 'm³'), T('Cốt thép móng, cột, dầm, sàn', 'tấn'), T('Bê tông cột, dầm, sàn', 'm³'), T('Xây tường gạch'), T('Tô trát tường'), T('Chống thấm sàn mái, WC'), T('Hệ thống điện nước âm', 'm² sàn')],
+  'Hoàn thiện': [T('Ốp lát gạch nền'), T('Ốp gạch tường WC'), T('Sơn nước nội thất'), T('Sơn nước ngoại thất'), T('Trần thạch cao'), T('Cửa đi, cửa sổ'), T('Lan can, cầu thang', 'md'), T('Thiết bị vệ sinh', 'bộ'), T('Thiết bị điện, đèn', 'gói')],
+  'Nội thất': [T('Tủ bếp trên + dưới', 'md'), T('Tủ quần áo'), T('Giường ngủ', 'cái'), T('Kệ tivi', 'md'), T('Bàn làm việc', 'cái'), T('Vận chuyển, lắp đặt', 'gói')],
+  'Sửa chữa cải tạo': [T('Tháo dỡ, đục phá'), T('Vận chuyển xà bần', 'chuyến'), T('Xây tô lại'), T('Chống thấm'), T('Sơn lại toàn bộ'), T('Thay mới điện nước', 'gói')],
 };
+
+// Hình thức báo giá. Thiết kế, Nhân công, Trọn gói thô: xuất Excel + soạn hợp đồng. Trọn gói hoàn thiện: xuất khái toán.
+// Đợt thanh toán lấy theo "Quy trình làm việc Hữu Nhân" (mục 4 và 6).
+const FORMS = {
+  design: {
+    name: 'Thiết kế', deftitle: 'Báo giá thiết kế kiến trúc', title: 'BÁO GIÁ THIẾT KẾ KIẾN TRÚC', coef: true, tpl: 'Thiết kế kiến trúc',
+    ct: 'HỢP ĐỒNG TƯ VẤN THIẾT KẾ XÂY DỰNG', ctName: 'Hợp đồng tư vấn thiết kế', ctCode: 'HĐTK', sideB: 'BÊN TƯ VẤN THIẾT KẾ',
+    info: ['Quy mô', 'Đất', 'Tầng trệt', 'Tầng lầu', 'Gói thiết kế'],
+    pay: [
+      { pct: 30, label: 'Khi ký hợp đồng', note: 'Khảo sát, đo đạc, lên mặt bằng – sửa đến khi chốt', days: '7–10 ngày' },
+      { pct: 40, label: 'Khi Bên A duyệt phối cảnh 3D', note: 'Phối cảnh 3D mặt tiền – sửa 3 lần', days: '10–15 ngày' },
+      { pct: 30, label: 'Khi Bên B bàn giao hồ sơ thiết kế', note: 'Kiến trúc, kết cấu, điện nước; nộp hồ sơ xin phép', days: '15–20 ngày' }],
+  },
+  labor: {
+    name: 'Nhân công', deftitle: 'Báo giá nhân công thô + hoàn thiện', title: 'BẢNG BÁO GIÁ NHÂN CÔNG', coef: false, tpl: 'Nhân công thô + hoàn thiện',
+    ct: 'HỢP ĐỒNG THI CÔNG XÂY DỰNG (NHÂN CÔNG)', ctName: 'Hợp đồng nhân công', ctCode: 'HĐNC', sideB: 'BÊN NHẬN THẦU',
+    info: ['Quy mô', 'Diện tích'],
+    note: 'Khối lượng tạm tính, quyết toán theo khối lượng thực tế.\nChủ nhà cung cấp toàn bộ vật tư, điện nước thi công.',
+    pay: [{ pct: 20, label: 'Tạm ứng khi ký hợp đồng' }, { pct: 70, label: 'Khi hoàn thành 70% khối lượng' }, { pct: 10, label: 'Khi nghiệm thu bàn giao công trình' }],
+  },
+  rough: {
+    name: 'Trọn gói thô', deftitle: 'Báo giá phần thô + nhân công hoàn thiện', title: 'BÁO GIÁ PHẦN THÔ + NHÂN CÔNG HOÀN THIỆN', coef: true, tpl: 'Phần thô + NC hoàn thiện',
+    ct: 'HỢP ĐỒNG THI CÔNG XÂY DỰNG NHÀ Ở (TRỌN GÓI VẬT TƯ THÔ VÀ NHÂN CÔNG HOÀN THIỆN)', ctName: 'Hợp đồng thi công phần thô + NC hoàn thiện', ctCode: 'HĐTC', sideB: 'BÊN NHẬN THẦU',
+    info: ['Quy mô', 'Diện tích', 'Kết cấu mái'],
+    note: 'Công ty cung cấp vật tư phần thô và toàn bộ nhân công; chủ nhà cung cấp vật tư hoàn thiện (gạch, sơn, thiết bị điện nước, cửa, đá…).\nDiện tích tạm tính, tính lại theo bản vẽ khi chốt.',
+    pay: [{ pct: 20, label: 'Tạm ứng khi ký hợp đồng' }, { pct: 20, label: 'Khi xong bê tông móng' }, { pct: 20, label: 'Khi xong sàn tầng 2' }, { pct: 20, label: 'Khi xong sàn mái' }, { pct: 15, label: 'Khi xong xây tô' }, { pct: 5, label: 'Khi nghiệm thu bàn giao công trình' }],
+  },
+  full: {
+    name: 'Trọn gói hoàn thiện', deftitle: 'Khái toán xây dựng trọn gói', title: 'BẢNG KHÁI TOÁN XÂY DỰNG', coef: true, tpl: 'Khái toán trọn gói',
+    info: ['Quy mô', 'Diện tích', 'Kết cấu mái', 'Mức hoàn thiện'],
+    note: 'Đơn giá hoàn thiện cơ bản, chưa gồm nội thất rời.\nPhần móng hệ số 20% chưa gồm cọc; móng cọc là chi phí dự kiến, tính lại theo thiết kế kết cấu.\nDiện tích tạm tính, quy đổi theo hệ số; tính lại theo bản vẽ khi chốt.\nGiá tham khảo, chưa phải giá hợp đồng; giá hợp đồng lấy theo dự toán chi tiết đã ký.\nChưa gồm phí thiết kế (báo riêng), lệ phí cấp phép, điện 3 pha, VAT.',
+  },
+};
+
+// Phí thiết kế = diện tích tính phí × đơn giá gói × K1 × K2 × K3, không thấp hơn phí tối thiểu ("Hướng dẫn báo giá thiết kế – Hữu Nhân")
+const DZ = {
+  pkg: {
+    G1: { name: 'G1 – Bản vẽ xin phép', base: 60000, min: 8e6, k: false, desc: 'Bản vẽ xin phép xây dựng',
+      deliver: ['2 bộ bản vẽ xin phép khổ A3 ký, đóng dấu + file PDF'] },
+    G2: { name: 'G2 – Kiến trúc trọn bộ', base: 200000, min: 20e6, k: true, desc: 'Kiến trúc trọn bộ: 3D mặt tiền, kiến trúc, kết cấu, điện nước + nộp hồ sơ xin phép',
+      deliver: ['2 bộ A3 ký, đóng dấu + file PDF', 'Công ty nộp hồ sơ xin phép thay chủ nhà', 'Kỹ thuật công ty theo sát suốt quá trình thi công'],
+      offer: [['Trọn gói – trừ 50%', 0.5], ['Thô + NC hoàn thiện – trừ 30%', 0.3]] },
+    G3: { name: 'G3 – Nội thất', base: 200000, min: 15e6, k: true, desc: 'Nội thất: 3D từng không gian, khai triển, chi tiết sản xuất',
+      deliver: ['2 bộ A3 ký, đóng dấu + file PDF', 'Bảng vật liệu và chi tiết sản xuất đồ nội thất'],
+      offer: [['Thi công nội thất – trừ 50%', 0.5]] },
+    G4: { name: 'G4 – Kiến trúc + nội thất', base: 360000, min: 35e6, k: true, desc: 'Kiến trúc + nội thất trọn bộ',
+      deliver: ['2 bộ A3 ký, đóng dấu + file PDF', 'Công ty nộp hồ sơ xin phép thay chủ nhà', 'Bảng vật liệu và chi tiết sản xuất đồ nội thất'],
+      offer: [['Trọn gói – trừ 50%', 0.5], ['Thô + NC hoàn thiện – trừ 30%', 0.3]] },
+  },
+  k1: { modern: [1, 'Hiện đại, tối giản', 'hiện đại'], premium: [1.2, 'Hiện đại cao cấp, Indochine, Japandi, nhiệt đới', 'hiện đại cao cấp'], neo: [1.4, 'Tân cổ điển', 'tân cổ điển'], classic: [1.6, 'Cổ điển', 'cổ điển'] },
+  k3: { town: [1, 'Nhà phố, nhà vườn, nhà cấp 4', 'nhà phố'], hotel: [1.1, 'Khách sạn, nhà nghỉ, căn hộ dịch vụ', 'khách sạn'], villa: [1.2, 'Biệt thự', 'biệt thự'], reno: [1.2, 'Cải tạo, nâng tầng', 'cải tạo'], shop: [1.2, 'Thương mại – dịch vụ', 'thương mại'] },
+};
+const k2Of = a => a < 100 ? 1 : a < 200 ? 1.1 : a < 400 ? 1 : a < 800 ? 0.9 : 0.8;
 
 // ---------- Tính toán ----------
 const proj = id => S.projects.find(p => p.id === id);
 const pname = id => proj(id)?.name || '(Chưa chọn dự án)';
 const inScope = x => !S.ui.pid || x.projectId === S.ui.pid;
+// Khối lượng một dòng: diện tích × hệ số % khi có, ngược lại là khối lượng nhập tay
+const iq = i => (+i.area > 0 && +i.coef > 0) ? Math.round(i.area * i.coef) / 100 : (+i.qty || 0);
+function dzOf(q, area) {
+  const d = q.dz || {}, P = DZ.pkg[d.pkg] || DZ.pkg.G2, a = DZ.k1[d.k1] || DZ.k1.modern, c = DZ.k3[d.k3] || DZ.k3.town;
+  const k1 = P.k ? a[0] : 1, k2 = P.k ? k2Of(area) : 1, k3 = P.k ? c[0] : 1;
+  return { P, area, k1, k2, k3, k1s: a[2], k3s: c[2], unit: Math.round(P.base * k1 * k2 * k3), min: P.min };
+}
+const dzFormula = d => d.P.k ? `${fmt(d.P.base)} đ × ${fmt(d.k1)} (${d.k1s}) × ${fmt(d.k2)} (quy mô) × ${fmt(d.k3)} (${d.k3s})` : `${fmt(d.P.base)} đ (gói G1 không nhân hệ số)`;
 function qTotal(q) {
-  const sub = sum(q.items || [], i => i.qty * i.price);
-  const disc = sub * (q.discount || 0) / 100;
-  const vat = (sub - disc) * (q.vat || 0) / 100;
-  return { sub, disc, vat, total: sub - disc + vat };
+  const items = (q.items || []).filter(i => !i.head);
+  const dz = q.form === 'design' ? dzOf(q, Math.round(items.reduce((t, i) => t + iq(i), 0) * 100) / 100) : null;
+  const line = i => i.head ? 0 : Math.round(iq(i) * (dz ? dz.unit : (+i.price || 0)));
+  const raw = items.reduce((t, i) => t + line(i), 0);
+  const minApplied = !!(dz && raw > 0 && raw < dz.min);
+  const sub = minApplied ? dz.min : raw;
+  const disc = Math.round(sub * (+q.discount || 0) / 100), vat = Math.round((sub - disc) * (+q.vat || 0) / 100);
+  return { raw, sub, disc, vat, total: sub - disc + vat, line, dz, minApplied };
 }
 function pMoney(pid) {
   const c = S.costs.filter(x => x.projectId === pid);
@@ -219,7 +291,8 @@ const VIEWS = {
     </div><div class="list cols">${S.projects.map(p => {
       const m = pMoney(p.id), base = p.budget || p.contract, pct = base ? Math.round(m.chi / base * 100) : 0;
       const nq = S.quotes.filter(q => q.projectId === p.id).length, nl = S.logs.filter(l => l.projectId === p.id).length;
-      return `<div class="card">
+      const cover = (p.photos || [])[0];
+      return `<div class="card pcard">${cover ? `<img class="cover" data-ph="${cover}" data-act="viewPhoto" alt="Phối cảnh ${esc(p.name)}">` : ''}
         <div class="row between tap" data-act="editProject" data-id="${p.id}">
           <div class="grow"><div class="bold clip">${esc(p.name)}</div><div class="small muted clip">${esc([p.client, p.address].filter(Boolean).join(' · ') || 'Chưa có thông tin khách hàng')}</div></div>
           ${badge(P_STATUS[p.status] || P_STATUS.prep)}
@@ -243,7 +316,7 @@ const VIEWS = {
     return `<div class="list cols">${list.map(q => `<div class="card tap" data-act="editQuote" data-id="${q.id}">
       <div class="row between"><div class="grow"><div class="bold clip">${esc(q.title || 'Báo giá')}</div>
       <div class="small muted clip">${esc(q.no)} · ${fdate(q.date)} · ${esc(pname(q.projectId))}</div></div>${badge(Q_STATUS[q.status] || Q_STATUS.draft)}</div>
-      <div class="row between mt"><span class="small muted">${(q.items || []).length} hạng mục</span><span class="bold num">${money(qTotal(q).total)}</span></div></div>`).join('')}</div>`;
+      <div class="row between mt"><span class="small muted">${q.form && FORMS[q.form] ? `<span class="badge orange">${FORMS[q.form].name}</span> ` : ''}${(q.items || []).filter(i => !i.head).length} hạng mục</span><span class="bold num">${money(qTotal(q).total)}</span></div></div>`).join('')}</div>`;
   },
 
   logs() {
@@ -310,12 +383,15 @@ const VIEWS = {
     const s = S.settings;
     return `<div class="list">
     ${window.Sync ? Sync.card() : ''}
-    <div class="card"><div class="bold mb">Thông tin công ty <span class="small muted" style="font-weight:400">(in trên báo giá)</span></div>
+    <div class="card"><div class="bold mb">Thông tin công ty <span class="small muted" style="font-weight:400">(in trên báo giá, hợp đồng)</span></div>
       <div class="fields">
         <div class="full"><label>Tên công ty / nhà thầu</label><input data-set="company" value="${esc(s.company)}" placeholder="Công ty TNHH Xây dựng ABC"></div>
         <div><label>Điện thoại</label><input data-set="phone" inputmode="tel" value="${esc(s.phone)}"></div>
         <div><label>Mã số thuế</label><input data-set="tax" value="${esc(s.tax)}"></div>
         <div class="full"><label>Địa chỉ</label><input data-set="address" value="${esc(s.address)}"></div>
+        <div><label>Người đại diện ký hợp đồng</label><input data-set="rep" value="${esc(s.rep)}" placeholder="Họ tên"></div>
+        <div><label>Chức vụ</label><input data-set="repTitle" value="${esc(s.repTitle)}" placeholder="VD: Giám đốc"></div>
+        <div class="full"><label>Tài khoản ngân hàng</label><input data-set="bank" value="${esc(s.bank)}" placeholder="VD: 0123456789 – Ngân hàng …, chi nhánh …"></div>
       </div></div>
     <div class="card"><div class="bold mb">Dữ liệu</div>
       <p class="small muted mb">Dữ liệu được lưu ngay trên thiết bị này, không cần mạng. Hãy xuất file sao lưu định kỳ, hoặc dùng file sao lưu để chuyển dữ liệu giữa điện thoại và máy tính.</p>
@@ -376,7 +452,7 @@ function openForm({ title, fields, data, onSave, onDelete }) {
     drawPhotos();
     $('#phFile', el).onchange = async e => {
       for (const file of e.target.files) {
-        try { const id = uid(), src = await compressImage(file); await DB.set('photos', id, src); photoCache.set(id, src); photos.push(id); added.push(id); }
+        try { const id = uid(), src = await compressImage(file, pf.max || 1280); await DB.set('photos', id, src); photoCache.set(id, src); photos.push(id); added.push(id); }
         catch (err) { toast('Không thêm được ảnh'); }
       }
       e.target.value = ''; drawPhotos();
@@ -441,9 +517,11 @@ function formProject(id) {
       { k: 'contract', label: 'Giá trị hợp đồng (₫)', type: 'money', half: true }, { k: 'budget', label: 'Ngân sách chi phí (₫)', type: 'money', half: true },
       { k: 'status', label: 'Trạng thái', type: 'select', options: Object.entries(P_STATUS).map(([k, v]) => [k, v[0]]) },
       { k: 'note', label: 'Ghi chú', type: 'textarea', rows: 2 },
+      { k: 'photos', label: 'Ảnh phối cảnh 3D (ảnh đầu tiên hiện trên thẻ dự án)', type: 'photos', max: 1600 },
     ],
     onSave: v => { if (p) Object.assign(p, v); else S.projects.unshift({ id: uid(), ...v }); },
     onDelete: p && (() => {
+      (p.photos || []).forEach(ph => DB.del('photos', ph));
       S.logs.filter(l => l.projectId === id).forEach(l => (l.photos || []).forEach(ph => DB.del('photos', ph)));
       S.docs.filter(d => d.projectId === id).forEach(d => (d.files || []).forEach(f => DB.del('files', f.id)));
       for (const k of ['quotes', 'logs', 'costs', 'docs']) S[k] = S[k].filter(x => x.projectId !== id);
@@ -519,7 +597,7 @@ async function openFile(id) {
   if (/^image\//.test(meta.type)) { $('#viewer img').src = url; $('#viewer').hidden = false; return; }
   const a = document.createElement('a');
   a.href = url; a.target = '_blank'; a.rel = 'noopener';
-  if (!/pdf/.test(meta.type)) a.download = meta.name;
+  if (!/pdf/.test(meta.type)) a.download = fileSafe(meta.name);
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 120000);
 }
@@ -529,15 +607,26 @@ function nextQuoteNo() {
   const y = new Date().getFullYear(), n = S.quotes.filter(q => (q.no || '').includes(`BG-${y}-`)).length + 1;
   return `BG-${y}-${String(n).padStart(3, '0')}`;
 }
+const newItem = () => ({ name: '', unit: 'm²', qty: 0, price: 0 });
+// Bản sạch để lưu / xuất: bỏ dòng trống, đơn giá thiết kế theo hệ số
+function cleanQuote(q) {
+  q.items = (q.items || []).filter(i => i.head ? (i.name || '').trim() : ((i.name || '').trim() || i.price || i.qty || i.area));
+  q.info = (q.info || []).filter(r => (r.k || '').trim() || (r.v || '').trim());
+  const t = qTotal(q);
+  if (t.dz) q.items.forEach(i => { if (!i.head) i.price = t.dz.unit; });
+  return q;
+}
 function formQuote(id) {
   if (!needProject()) return;
   const orig = S.quotes.find(x => x.id === id);
   const pid = S.ui.pid || S.projects[0].id;
-  const q = orig ? JSON.parse(JSON.stringify(orig)) : { id: uid(), projectId: pid, no: nextQuoteNo(), date: today(), title: '', customer: proj(pid)?.client || '', status: 'draft', vat: 8, discount: 0, note: '', items: [{ name: '', unit: 'm²', qty: 0, price: 0 }] };
+  const q = orig ? JSON.parse(JSON.stringify(orig)) : { id: uid(), projectId: pid, no: nextQuoteNo(), date: today(), title: '', customer: proj(pid)?.client || '', status: 'draft', form: '', coef: false, vat: 0, discount: 0, note: '', info: [], items: [newItem()] };
+  q.items = q.items || []; q.info = q.info || [];
   const opt = (list, v) => list.map(([k, t]) => `<option value="${esc(k)}" ${k === v ? 'selected' : ''}>${esc(t)}</option>`).join('');
   const el = openSheet(`<header><h2>${orig ? 'Báo giá ' + esc(q.no) : 'Lập báo giá'}</h2><button class="btn sm" data-act="closeSheet" type="button">Đóng</button></header>
   <div class="body">
     <div class="fields">
+      <div class="full"><label>Hình thức</label><select data-q="form">${opt([['', '— Chọn hình thức —'], ...Object.entries(FORMS).map(([k, f]) => [k, f.name])], q.form || '')}</select></div>
       <div class="full"><label>Tiêu đề</label><input data-q="title" value="${esc(q.title)}" placeholder="VD: Báo giá thi công phần thô"></div>
       <div class="full"><label>Dự án</label><select data-q="projectId">${opt(projOptions(), q.projectId)}</select></div>
       <div><label>Số báo giá</label><input data-q="no" value="${esc(q.no)}"></div>
@@ -545,109 +634,171 @@ function formQuote(id) {
       <div><label>Khách hàng</label><input data-q="customer" value="${esc(q.customer)}"></div>
       <div><label>Trạng thái</label><select data-q="status">${opt(Object.entries(Q_STATUS).map(([k, v]) => [k, v[0]]), q.status)}</select></div>
     </div>
-    <div class="row between" style="margin:18px 0 8px"><b>Hạng mục</b>
-      <select id="qTpl" style="width:auto;min-height:36px;padding:4px 10px;font-size:14px"><option value="">+ Thêm từ mẫu…</option>${Object.keys(TPL).map(k => `<option>${k}</option>`).join('')}</select></div>
+    <div id="qDz"></div>
+    <div class="row between" style="margin:18px 0 8px"><b>Thông tin công trình</b><button class="linkbtn" type="button" id="qInfoAdd">+ Thêm dòng</button></div>
+    <div id="qInfo"></div>
+    <div class="row between wrap" style="margin:18px 0 8px;gap:8px"><b>Hạng mục</b>
+      <label class="chk"><input type="checkbox" id="qCoef" ${q.coef ? 'checked' : ''}> Diện tích × hệ số</label>
+      <select id="qTpl" style="width:auto;min-height:36px;padding:4px 10px;font-size:14px"><option value="">+ Thêm từ mẫu…</option>${Object.keys(TPL).map(k => `<option>${esc(k)}</option>`).join('')}</select></div>
     <div id="qItems"></div>
-    <button class="btn" type="button" id="qAdd" style="width:100%">+ Thêm hạng mục</button>
+    <div class="btns"><button class="btn" type="button" id="qAdd" style="flex:1">+ Thêm hạng mục</button><button class="btn" type="button" id="qAddH">+ Thêm nhóm</button></div>
     <div class="card totals">
       <div class="row between"><span>Tạm tính</span><b class="num" id="tSub"></b></div>
+      <div class="row between" id="tMinRow" hidden><span>Áp phí tối thiểu</span><b class="num" id="tMin"></b></div>
       <div class="row between"><span>Giảm giá <input data-q="discount" inputmode="decimal" value="${q.discount || 0}" aria-label="Giảm giá phần trăm"> %</span><span class="num" id="tDisc"></span></div>
       <div class="row between"><span>VAT <input data-q="vat" inputmode="decimal" value="${q.vat || 0}" aria-label="VAT phần trăm"> %</span><span class="num" id="tVat"></span></div>
       <div class="row between grand"><span>Tổng cộng</span><span class="num" id="tTotal"></span></div>
       <div class="small muted right" id="tWords"></div>
     </div>
-    <div class="mt"><label>Ghi chú / điều khoản</label><textarea data-q="note" rows="3" placeholder="VD: Báo giá có hiệu lực 30 ngày. Thanh toán theo 4 đợt…">${esc(q.note)}</textarea></div>
-    <div class="btns mt">
-      <button class="btn sm" type="button" id="qPrint">🖨 In / lưu PDF</button>
-      <button class="btn sm" type="button" id="qCsv">⬇ Excel</button>
-      ${orig ? `<button class="btn sm" type="button" id="qDup">Nhân bản</button><button class="btn sm" type="button" id="qApply">Lấy làm giá trị hợp đồng</button><button class="btn sm danger" type="button" id="qDel">Xóa</button>` : ''}
-    </div>
+    <div class="mt"><label>Ghi chú / điều khoản</label><textarea data-q="note" rows="3" placeholder="Mỗi dòng là một ý">${esc(q.note)}</textarea></div>
+    <div class="btns mt" id="qBtns"></div>
   </div>
   <footer><button class="btn primary" type="button" id="qSave">Lưu báo giá</button></footer>`, true);
+  const $q = sel => $(sel, el);
 
-  const totals = () => {
-    const t = qTotal(q);
-    $('#tSub', el).textContent = money(t.sub); $('#tDisc', el).textContent = '−' + money(t.disc);
-    $('#tVat', el).textContent = '+' + money(t.vat); $('#tTotal', el).textContent = money(t.total);
-    $('#tWords', el).textContent = docSo(t.total);
+  const drawDz = () => {
+    if (q.form !== 'design') { $q('#qDz').innerHTML = ''; return; }
+    q.dz = q.dz || { pkg: 'G2', k1: 'modern', k3: 'town' };
+    $q('#qDz').innerHTML = `<div class="card mt"><div class="bold small mb">Cách tính phí thiết kế</div><div class="fields">
+      <div class="full"><label>Gói thiết kế</label><select data-dz="pkg">${opt(Object.entries(DZ.pkg).map(([k, v]) => [k, `${v.name} – ${fmt(v.base)} đ/m²`]), q.dz.pkg)}</select></div>
+      <div><label>K1 – Phong cách</label><select data-dz="k1">${opt(Object.entries(DZ.k1).map(([k, v]) => [k, `${v[1]} (${fmt(v[0])})`]), q.dz.k1)}</select></div>
+      <div><label>K3 – Loại công trình</label><select data-dz="k3">${opt(Object.entries(DZ.k3).map(([k, v]) => [k, `${v[1]} (${fmt(v[0])})`]), q.dz.k3)}</select></div>
+    </div><p class="small muted mt" id="dzLine"></p></div>`;
+  };
+  const drawInfo = () => {
+    $q('#qInfo').innerHTML = q.info.map((r, i) => `<div class="kvrow" data-n="${i}"><input data-iv="k" value="${esc(r.k)}" placeholder="Mục" aria-label="Mục"><input data-iv="v" value="${esc(r.v)}" placeholder="Nội dung" aria-label="Nội dung"><button type="button" class="del" data-idel="${i}" aria-label="Xóa dòng">×</button></div>`).join('')
+      || '<p class="small muted">Không bắt buộc. VD: Quy mô, Diện tích, Kết cấu mái, Mức hoàn thiện.</p>';
   };
   const drawItems = () => {
-    $('#qItems', el).innerHTML = q.items.map((it, i) => `<div class="qi" data-i="${i}">
-      <input class="nm" data-f="name" value="${esc(it.name)}" placeholder="Tên hạng mục / vật tư" aria-label="Tên hạng mục">
-      <input data-f="unit" value="${esc(it.unit)}" placeholder="ĐVT" aria-label="Đơn vị tính">
-      <input data-f="qty" inputmode="decimal" class="right" value="${it.qty || ''}" placeholder="KL" aria-label="Khối lượng">
-      <input data-f="price" data-money inputmode="numeric" class="right" value="${it.price ? fmt(it.price) : ''}" placeholder="Đơn giá" aria-label="Đơn giá">
+    const K = !!q.coef, ro = q.form === 'design';
+    $q('#qItems').innerHTML = q.items.map((it, i) => it.head
+      ? `<div class="qi h" data-i="${i}"><input class="nm" data-f="name" value="${esc(it.name)}" placeholder="Tên nhóm (VD: NHÀ CHÍNH)" aria-label="Tên nhóm"><div class="tt num"></div><button class="del" type="button" data-del="${i}" aria-label="Xóa nhóm">×</button></div>`
+      : `<div class="qi${K ? ' k' : ''}" data-i="${i}">
+      <input class="nm" data-f="name" value="${esc(it.name)}" placeholder="Tên hạng mục / công việc" aria-label="Tên hạng mục">
+      <input class="un" data-f="unit" value="${esc(it.unit)}" placeholder="ĐVT" aria-label="Đơn vị tính">
+      ${K ? `<input class="ar right" data-f="area" inputmode="decimal" value="${it.area || ''}" placeholder="Diện tích" aria-label="Diện tích">
+      <input class="cf right" data-f="coef" inputmode="decimal" value="${it.coef || ''}" placeholder="Hệ số %" aria-label="Hệ số phần trăm">` : ''}
+      <input class="ql right" data-f="qty" inputmode="decimal" value="${it.qty || ''}" placeholder="${K ? 'KL quy đổi' : 'KL'}" aria-label="Khối lượng">
+      <input class="pr right" data-f="price" data-money inputmode="numeric" value="${it.price ? fmt(it.price) : ''}" placeholder="Đơn giá" aria-label="Đơn giá"${ro ? ' readonly' : ''}>
       <button class="del" type="button" data-del="${i}" aria-label="Xóa hạng mục">×</button>
-      <div class="tt num">= ${money(it.qty * it.price)}</div></div>`).join('');
-    totals();
+      <div class="tt num"></div></div>`).join('');
+    refresh();
   };
-  drawItems();
+  const refresh = () => {
+    const t = qTotal(q);
+    $$('.qi', el).forEach(row => {
+      const n = +row.dataset.i, it = q.items[n];
+      if (!it) return;
+      if (it.head) {
+        let g = 0;
+        for (let j = n + 1; j < q.items.length && !q.items[j].head; j++) g += t.line(q.items[j]);
+        $('.tt', row).textContent = '= ' + money(g); return;
+      }
+      const ql = $('.ql', row), pr = $('.pr', row), auto = q.coef && +it.area > 0 && +it.coef > 0;
+      ql.readOnly = auto;
+      if (auto && document.activeElement !== ql) ql.value = String(iq(it)).replace('.', ',');
+      if (t.dz && document.activeElement !== pr) pr.value = fmt(t.dz.unit);
+      $('.tt', row).textContent = '= ' + money(t.line(it));
+    });
+    $q('#tSub').textContent = money(t.raw);
+    $q('#tMinRow').hidden = !t.minApplied; $q('#tMin').textContent = money(t.sub);
+    $q('#tDisc').textContent = '−' + money(t.disc); $q('#tVat').textContent = '+' + money(t.vat);
+    $q('#tTotal').textContent = money(t.total); $q('#tWords').textContent = docSo(t.total);
+    if (t.dz && $q('#dzLine')) $q('#dzLine').textContent = `Diện tích tính phí ${fmt(t.dz.area)} m² → K2 = ${fmt(t.dz.k2)}. Đơn giá: ${dzFormula(t.dz)} = ${fmt(t.dz.unit)} đ/m². Phí tối thiểu ${fmt(t.dz.min)} đ.`;
+  };
+  const drawBtns = () => {
+    const F = FORMS[q.form];
+    $q('#qBtns').innerHTML = (q.form === 'full'
+      ? `<button class="btn sm primary" type="button" data-qa="print">📄 Xuất khái toán (PDF)</button>`
+      : `<button class="btn sm" type="button" data-qa="print">🖨 In / lưu PDF</button>${F ? `<button class="btn sm" type="button" data-qa="xlsx">⬇ Xuất Excel</button><button class="btn sm" type="button" data-qa="ct">📝 Soạn hợp đồng</button>` : ''}`)
+      + (orig ? `<button class="btn sm" type="button" data-qa="dup">Nhân bản</button><button class="btn sm" type="button" data-qa="apply">Lấy làm giá trị hợp đồng</button><button class="btn sm danger" type="button" data-qa="del">Xóa</button>` : '')
+      + (F ? '' : `<p class="small muted" style="flex-basis:100%">Chọn <b>Hình thức</b> để xuất Excel và soạn hợp đồng (Thiết kế, Nhân công, Trọn gói thô) hoặc xuất khái toán (Trọn gói hoàn thiện).</p>`);
+  };
+  const setForm = f => {
+    q.form = f;
+    const F = FORMS[f];
+    if (F) {
+      q.coef = F.coef; $q('#qCoef').checked = q.coef;
+      if (f === 'design') q.dz = q.dz || { pkg: 'G2', k1: 'modern', k3: 'town' };
+      if (!q.info.some(r => (r.v || '').trim())) q.info = F.info.map(k => ({ k, v: k === 'Gói thiết kế' ? DZ.pkg[q.dz.pkg].desc : '' }));
+      if (!(q.note || '').trim() && F.note) { q.note = F.note; $q('[data-q=note]').value = q.note; }
+      if (!(q.title || '').trim()) { q.title = F.deftitle; $q('[data-q=title]').value = q.title; }
+      if (!q.items.some(i => (i.name || '').trim())) q.items = TPL[F.tpl].map(x => ({ ...x }));
+    }
+    drawDz(); drawInfo(); drawItems(); drawBtns();
+  };
+  drawDz(); drawInfo(); drawItems(); drawBtns();
 
   el.addEventListener('input', e => {
     const t = e.target;
-    if (t.dataset.q) q[t.dataset.q] = ['vat', 'discount'].includes(t.dataset.q) ? Math.max(0, dec(t.value)) : t.value;
-    else if (t.dataset.f) {
-      const row = t.closest('.qi'), it = q.items[+row.dataset.i], f = t.dataset.f;
-      it[f] = f === 'qty' ? dec(t.value) : f === 'price' ? num(t.value) : t.value;
-      $('.tt', row).textContent = '= ' + money(it.qty * it.price);
-    }
-    totals();
+    if (t.dataset.q) { if (t.dataset.q === 'form') return; q[t.dataset.q] = ['vat', 'discount'].includes(t.dataset.q) ? Math.max(0, dec(t.value)) : t.value; }
+    else if (t.dataset.f) { const it = q.items[+t.closest('.qi').dataset.i], f = t.dataset.f; it[f] = ['qty', 'area', 'coef'].includes(f) ? dec(t.value) : f === 'price' ? num(t.value) : t.value; }
+    else if (t.dataset.iv) { q.info[+t.closest('.kvrow').dataset.n][t.dataset.iv] = t.value; return; }
+    else return;
+    refresh();
   });
-  $('#qItems', el).addEventListener('click', e => { const i = e.target.dataset.del; if (i !== undefined) { q.items.splice(+i, 1); drawItems(); } });
-  $('#qAdd', el).onclick = () => { q.items.push({ name: '', unit: 'm²', qty: 0, price: 0 }); drawItems(); $$('.qi .nm', el).pop().focus(); };
-  $('#qTpl', el).onchange = e => {
-    if (!e.target.value) return;
-    q.items = q.items.filter(i => i.name || i.price || i.qty);
-    q.items.push(...TPL[e.target.value].map(([name, unit]) => ({ name, unit, qty: 0, price: 0 })));
-    if (!q.title) { q.title = 'Báo giá ' + e.target.value.toLowerCase(); $('[data-q=title]', el).value = q.title; }
+  el.addEventListener('change', e => {
+    const t = e.target;
+    if (t.dataset.q === 'form') setForm(t.value);
+    else if (t.id === 'qCoef') { q.coef = t.checked; drawItems(); }
+    else if (t.dataset.dz) {
+      const old = DZ.pkg[q.dz.pkg].desc;
+      q.dz[t.dataset.dz] = t.value;
+      const row = q.info.find(r => r.k === 'Gói thiết kế');
+      if (t.dataset.dz === 'pkg' && row && (!row.v || row.v === old)) { row.v = DZ.pkg[t.value].desc; drawInfo(); }
+      refresh();
+    }
+  });
+  el.addEventListener('click', e => {
+    const t = e.target;
+    if (t.dataset.del !== undefined) { q.items.splice(+t.dataset.del, 1); drawItems(); }
+    else if (t.dataset.idel !== undefined) { q.info.splice(+t.dataset.idel, 1); drawInfo(); }
+  });
+  $q('#qInfoAdd').onclick = () => { q.info.push({ k: '', v: '' }); drawInfo(); $$('.kvrow input', el).slice(-2)[0].focus(); };
+  $q('#qAdd').onclick = () => { q.items.push(newItem()); drawItems(); $$('.qi .nm', el).pop().focus(); };
+  $q('#qAddH').onclick = () => { q.items.push({ head: true, name: '' }); drawItems(); $$('.qi .nm', el).pop().focus(); };
+  $q('#qTpl').onchange = e => {
+    const name = e.target.value;
+    if (!name) return;
+    q.items = q.items.filter(i => i.head ? (i.name || '').trim() : (i.name || i.price || i.qty || i.area));
+    q.items.push(...TPL[name].map(x => ({ ...x })));
+    if (TPL[name].some(x => x.coef)) { q.coef = true; $q('#qCoef').checked = true; }
+    if (!(q.title || '').trim()) { q.title = 'Báo giá ' + name.toLowerCase(); $q('[data-q=title]').value = q.title; }
     e.target.value = ''; drawItems();
   };
+  const snapshot = () => cleanQuote(JSON.parse(JSON.stringify(q)));
   const commit = () => {
-    q.items = q.items.filter(i => i.name.trim() || i.price || i.qty);
-    if (orig) Object.assign(orig, q); else S.quotes.push(q);
+    cleanQuote(q);
+    if (orig) Object.assign(orig, q); else if (!S.quotes.includes(q)) S.quotes.push(q);
     save();
   };
-  $('#qSave', el).onclick = () => { commit(); closeSheet(); render(); toast('Đã lưu báo giá'); };
-  $('#qPrint', el).onclick = () => printHTML(quotePrintHTML(q));
-  $('#qCsv', el).onclick = () => {
-    const t = qTotal(q);
-    downloadCSV(`${q.no}.csv`, [['STT', 'Hạng mục', 'ĐVT', 'Khối lượng', 'Đơn giá', 'Thành tiền'],
-      ...q.items.map((i, n) => [n + 1, i.name, i.unit, i.qty, i.price, Math.round(i.qty * i.price)]),
-      [], ['', 'Tạm tính', '', '', '', Math.round(t.sub)], ['', `Giảm giá ${q.discount || 0}%`, '', '', '', -Math.round(t.disc)], ['', `VAT ${q.vat || 0}%`, '', '', '', Math.round(t.vat)], ['', 'Tổng cộng', '', '', '', Math.round(t.total)]]);
-  };
-  if (orig) {
-    $('#qDel', el).onclick = () => { if (confirm('Xóa báo giá này?')) { S.quotes = S.quotes.filter(x => x.id !== id); save(); closeSheet(); render(); toast('Đã xóa'); } };
-    $('#qDup', el).onclick = () => { commit(); S.quotes.push({ ...JSON.parse(JSON.stringify(q)), id: uid(), no: nextQuoteNo(), date: today(), status: 'draft' }); save(); closeSheet(); render(); toast('Đã nhân bản báo giá'); };
-    $('#qApply', el).onclick = () => {
-      const p = proj(q.projectId), t = Math.round(qTotal(q).total);
+  $q('#qSave').onclick = () => { commit(); closeSheet(); render(); toast('Đã lưu báo giá'); };
+  $q('#qBtns').addEventListener('click', e => {
+    const a = e.target.closest('[data-qa]')?.dataset.qa;
+    if (!a) return;
+    if (a === 'print') printHTML(quoteDocHTML(snapshot()));
+    else if (a === 'xlsx') { const x = snapshot(); download(docFileName(x, 'xlsx'), quoteXlsx(x)); }
+    else if (a === 'ct') { commit(); closeSheet(); render(); openContract(q.id); }
+    else if (a === 'del') { if (confirm('Xóa báo giá này?')) { S.quotes = S.quotes.filter(x => x.id !== id); save(); closeSheet(); render(); toast('Đã xóa'); } }
+    else if (a === 'dup') { commit(); const c = JSON.parse(JSON.stringify(q)); delete c.ct; S.quotes.push({ ...c, id: uid(), no: nextQuoteNo(), date: today(), status: 'draft' }); save(); closeSheet(); render(); toast('Đã nhân bản báo giá'); }
+    else if (a === 'apply') {
+      const p = proj(q.projectId), t = qTotal(q).total;
       if (p && confirm(`Đặt giá trị hợp đồng của "${p.name}" thành ${money(t)}?`)) { p.contract = t; q.status = 'approved'; commit(); closeSheet(); render(); toast('Đã cập nhật giá trị hợp đồng'); }
-    };
-  }
+    }
+  });
 }
 
 // ---------- In & xuất file ----------
 function printHTML(html) {
-  $('#print').innerHTML = html;
-  setTimeout(() => window.print(), 50);
+  const box = $('#print');
+  box.innerHTML = html;
+  // Chờ ảnh (logo) tải xong rồi mới mở hộp thoại in
+  const wait = $$('img', box).filter(i => !i.complete).map(i => new Promise(r => { i.onload = i.onerror = r; }));
+  Promise.race([Promise.all(wait), new Promise(r => setTimeout(r, 3000))]).then(() => setTimeout(() => window.print(), 50));
 }
 function companyHead() {
   const s = S.settings;
   return `<div><b style="font-size:15px">${esc(s.company || 'TÊN CÔNG TY / NHÀ THẦU')}</b><br>${esc(s.address)}${s.phone ? `<br>ĐT: ${esc(s.phone)}` : ''}${s.tax ? ` · MST: ${esc(s.tax)}` : ''}</div>`;
-}
-function quotePrintHTML(q) {
-  const t = qTotal(q), p = proj(q.projectId) || {};
-  return `${companyHead()}<h1>BẢNG BÁO GIÁ</h1>
-  <div class="c">Số: ${esc(q.no)} — Ngày ${fdate(q.date)}</div>
-  <p style="margin-top:10px"><b>Kính gửi:</b> ${esc(q.customer || p.client)}<br><b>Công trình:</b> ${esc(p.name)}${p.address ? `<br><b>Địa điểm:</b> ${esc(p.address)}` : ''}${q.title ? `<br><b>Nội dung:</b> ${esc(q.title)}` : ''}</p>
-  <table><thead><tr><th>STT</th><th>Hạng mục</th><th>ĐVT</th><th>Khối lượng</th><th>Đơn giá</th><th>Thành tiền</th></tr></thead><tbody>
-  ${q.items.map((i, n) => `<tr><td class="c">${n + 1}</td><td>${esc(i.name)}</td><td class="c">${esc(i.unit)}</td><td class="r">${fmt(i.qty)}</td><td class="r">${fmt(i.price)}</td><td class="r">${fmt(Math.round(i.qty * i.price))}</td></tr>`).join('')}
-  <tr><td colspan="5" class="r">Tạm tính</td><td class="r">${fmt(Math.round(t.sub))}</td></tr>
-  ${q.discount ? `<tr><td colspan="5" class="r">Giảm giá ${fmt(q.discount)}%</td><td class="r">−${fmt(Math.round(t.disc))}</td></tr>` : ''}
-  ${q.vat ? `<tr><td colspan="5" class="r">Thuế VAT ${fmt(q.vat)}%</td><td class="r">${fmt(Math.round(t.vat))}</td></tr>` : ''}
-  <tr><td colspan="5" class="r"><b>TỔNG CỘNG (₫)</b></td><td class="r"><b>${fmt(Math.round(t.total))}</b></td></tr></tbody></table>
-  <p style="margin-top:8px"><i>Bằng chữ: ${docSo(t.total)}.</i></p>
-  ${q.note ? `<p class="pre" style="margin-top:8px"><b>Ghi chú:</b>\n${esc(q.note)}</p>` : ''}
-  <div class="sign"><div><b>KHÁCH HÀNG</b><br><i>(Ký, ghi rõ họ tên)</i></div><div><b>ĐƠN VỊ BÁO GIÁ</b><br><i>(Ký, đóng dấu)</i></div></div>`;
 }
 async function printLogs() {
   const list = S.logs.filter(inScope).sort((a, b) => -byDateDesc(a, b));
@@ -657,26 +808,41 @@ async function printLogs() {
     <div class="pre">${esc(l.content)}</div>${l.issue ? `<div class="pre"><b>Vướng mắc:</b> ${esc(l.issue)}</div>` : ''}
     ${l.photos?.length ? `<div class="pimgs">${l.photos.map(id => photoCache.get(id) ? `<img src="${photoCache.get(id)}">` : '').join('')}</div>` : ''}</div>`).join('')}`);
 }
+// Tên file không dấu: một số trình duyệt bỏ tên có dấu và lưu thành "download"
+const fileSafe = name => String(name).normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D')
+  .replace(/[–—]/g, '-').replace(/[^\w .,()+-]/g, '').replace(/\s+/g, ' ').trim() || 'tep';
 function download(name, blob) {
   const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob); a.download = name;
+  a.href = URL.createObjectURL(blob); a.download = fileSafe(name);
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(a.href), 5000);
 }
-function downloadCSV(name, rows) {
-  const cell = v => { let s = String(v ?? ''); if (/^[=+\-@]/.test(s) && isNaN(+s)) s = "'" + s; return /[",\n;]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
-  download(name, new Blob(['﻿' + rows.map(r => r.map(cell).join(',')).join('\r\n')], { type: 'text/csv;charset=utf-8' }));
-}
 async function backup() {
   const photos = {};
-  for (const l of S.logs) for (const id of l.photos || []) photos[id] = await getPhoto(id);
+  for (const x of [...S.logs, ...S.projects]) for (const id of x.photos || []) photos[id] = await getPhoto(id);
   const files = {};
   for (const d of S.docs) for (const f of d.files || []) { const b = await DB.get('files', f.id); if (b) files[f.id] = await blobToDataURL(b); }
   download(`sao-luu-xay-dung-${today()}.json`, new Blob([JSON.stringify({ app: 'qlxd', v: 2, state: S, photos, files })], { type: 'application/json' }));
 }
+// Gói dự án: chỉ THÊM các mục chưa có (theo mã), không xóa hay ghi đè dữ liệu hiện có
+async function importPackage(d) {
+  const kinds = ['projects', 'quotes', 'logs', 'costs', 'docs'];
+  const add = {};
+  for (const k of kinds) add[k] = (Array.isArray(d[k]) ? d[k] : []).filter(r => r && typeof r.id === 'string' && !S[k].some(x => x.id === r.id));
+  const total = kinds.reduce((t, k) => t + add[k].length, 0);
+  if (!total) return toast('Các mục trong file này đã có sẵn, không có gì để thêm');
+  const names = add.projects.map(p => p.name).filter(Boolean).join(', ');
+  if (!confirm(`Thêm ${total} mục${names ? ` (dự án: ${names})` : ''} vào dữ liệu hiện có? Không xóa hay ghi đè mục nào.`)) return;
+  const ph = new Set([...add.logs, ...add.projects].flatMap(l => l.photos || [])), fl = new Set(add.docs.flatMap(x => (x.files || []).map(f => f.id)));
+  for (const [id, src] of Object.entries(d.photos || {})) if (ph.has(id) && typeof src === 'string' && src.startsWith('data:image/')) await DB.set('photos', id, src);
+  for (const [id, src] of Object.entries(d.files || {})) if (fl.has(id) && typeof src === 'string' && src.startsWith('data:')) await DB.set('files', id, await (await fetch(src)).blob());
+  for (const k of kinds) S[k].push(...add[k]);
+  save(); render(); toast(`Đã thêm ${total} mục`);
+}
 async function restore(file) {
   try {
     const d = JSON.parse(await file.text());
+    if (d.app === 'qlxd' && d.pkg === 1) return await importPackage(d);
     if (d.app !== 'qlxd' || !d.state || !Array.isArray(d.state.projects)) throw 0;
     if (!confirm(window.Sync?.signedIn()
       ? 'Nhập file này sẽ thay dữ liệu trên máy này, rồi gộp với dữ liệu chung trên máy chủ (bản trên máy chủ được ưu tiên, không mục nào trên máy chủ bị xóa). Tiếp tục?'
@@ -697,7 +863,7 @@ function sampleData() {
     { id: p1, name: 'Nhà phố 4 tầng – anh Minh', client: 'Nguyễn Văn Minh', phone: '0901 234 567', address: '25 Đường số 7, Q.7, TP.HCM', start: d(45), end: '', status: 'active', contract: 2450000000, budget: 2050000000, note: '' },
     { id: p2, name: 'Cải tạo căn hộ – chị Lan', client: 'Trần Thị Lan', phone: '', address: 'Chung cư Sunrise, Q.7', start: d(10), end: '', status: 'prep', contract: 380000000, budget: 310000000, note: '' });
   S.quotes.push(
-    { id: uid(), projectId: p1, no: nextQuoteNo(), date: d(50), title: 'Báo giá thi công phần thô', customer: 'Nguyễn Văn Minh', status: 'approved', vat: 8, discount: 2, note: 'Báo giá có hiệu lực 30 ngày.\nThanh toán theo 5 đợt theo tiến độ.',
+    { id: uid(), projectId: p1, no: nextQuoteNo(), date: d(50), title: 'Báo giá thi công phần thô', form: 'rough', coef: false, customer: 'Nguyễn Văn Minh', status: 'approved', vat: 8, discount: 2, note: 'Báo giá có hiệu lực 30 ngày.\nThanh toán theo 5 đợt theo tiến độ.',
       items: [{ name: 'Thi công phần thô (vật tư + nhân công)', unit: 'm²', qty: 320, price: 3900000 }, { name: 'Ép cọc bê tông 250x250', unit: 'md', qty: 480, price: 290000 }, { name: 'Chống thấm sàn mái, WC', unit: 'm²', qty: 95, price: 180000 }] });
   S.quotes.push({ id: uid(), projectId: p2, no: nextQuoteNo(), date: d(8), title: 'Báo giá cải tạo nội thất', customer: 'Trần Thị Lan', status: 'sent', vat: 8, discount: 0, note: '',
     items: [{ name: 'Tháo dỡ, đục phá', unit: 'm²', qty: 70, price: 150000 }, { name: 'Tủ bếp trên + dưới', unit: 'md', qty: 6.5, price: 7500000 }, { name: 'Sơn lại toàn bộ', unit: 'm²', qty: 260, price: 75000 }] });
@@ -730,8 +896,7 @@ const ACT = {
   closeViewer: () => { $('#viewer').hidden = true; const i = $('#viewer img'); if (i.src.startsWith('blob:')) URL.revokeObjectURL(i.src); i.removeAttribute('src'); },
   printLogs, backup, sample: sampleData,
   restore: () => $('#restoreFile').click(),
-  csvCosts: () => downloadCSV(`thu-chi-${today()}.csv`, [['Ngày', 'Dự án', 'Loại', 'Nhóm', 'Nội dung', 'Nhà cung cấp', 'Số tiền'],
-    ...S.costs.filter(inScope).sort(byDateDesc).map(c => [fdate(c.date), pname(c.projectId), c.type === 'thu' ? 'Thu' : 'Chi', c.type === 'thu' ? '' : c.cat, c.desc, c.vendor, c.type === 'thu' ? c.amount : -c.amount])]),
+  csvCosts: () => download(`thu-chi-${S.ui.pid ? pname(S.ui.pid).replace(/[\\/:*?"<>|]/g, '') + '-' : ''}${today()}.xlsx`, costsXlsx(S.costs.filter(inScope).sort(byDateDesc))),
   wipe: async () => {
     const online = window.Sync?.signedIn();
     if (!confirm(online

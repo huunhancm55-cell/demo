@@ -160,6 +160,26 @@ label { display: block; font-size: 13px; font-weight: 600; color: var(--muted); 
 .frow { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; margin-top: 6px; background: var(--card); min-height: 42px; }
 .frow .grow { flex: 1; min-width: 0; }
 .frow button { border: 0; background: none; color: var(--red); font-size: 20px; line-height: 1; padding: 0 4px; }
+/* Ảnh phối cảnh trên thẻ dự án */
+.pcard { overflow: hidden; }
+.pcard .cover { display: block; width: calc(100% + 28px); max-width: none; margin: -14px -14px 12px; aspect-ratio: 16 / 10; object-fit: cover; object-position: center 40%; background: var(--gray-soft); cursor: zoom-in; }
+
+/* Soạn hợp đồng */
+.ctgrid { display: grid; gap: 16px; }
+@media (min-width: 900px) { .ctgrid { grid-template-columns: 340px minmax(0, 1fr); align-items: start; } }
+.paper { background: #fff; color: #111; border: 1px solid var(--line); border-radius: 8px; padding: 24px 28px; font: 15px/1.5 "Times New Roman", Times, serif; max-height: 75vh; overflow: auto; outline: none; }
+.paper:focus { border-color: var(--accent); }
+@media (max-width: 600px) { .paper { padding: 14px; font-size: 14px; } }
+.ct h1 { font-size: 1.2em; text-align: center; margin: 10px 0 2px; }
+.ct h2 { font-size: 1em; margin: 14px 0 4px; }
+.ct p { margin: 4px 0; }
+.ct ul, .ct ol { margin: 2px 0; padding-left: 22px; }
+.ct table { border-collapse: collapse; width: 100%; margin: 6px 0; }
+.ct th, .ct td { border: 1px solid #333; padding: 4px 6px; vertical-align: top; text-align: left; }
+.ct th { background: #f0f0f0; }
+.ct .c { text-align: center; } .ct .r { text-align: right; white-space: nowrap; }
+.ct table.nb td { border: 0; }
+.ct table.signs { margin-top: 24px; page-break-inside: avoid; }
 .catrow { display: grid; grid-template-columns: 110px 1fr auto; gap: 10px; align-items: center; font-size: 13.5px; padding: 4px 0; }
 
 /* ---------- Sheet (form) ---------- */
@@ -183,9 +203,30 @@ label { display: block; font-size: 13px; font-weight: 600; color: var(--muted); 
 .qi .del { grid-column: 4; grid-row: 1; border: 0; background: none; color: var(--red); font-size: 22px; height: 44px; }
 .qi .tt { grid-column: 1 / -1; text-align: right; font-weight: 700; font-size: 13.5px; }
 .qi input { padding: 8px 10px; }
+.qi input[readonly] { background: var(--gray-soft); color: var(--muted); }
+/* Có diện tích × hệ số */
+.qi.k { grid-template-columns: repeat(3, 1fr) 34px; }
+.qi.k .nm { grid-column: 1 / 4; }
+.qi.k .un { grid-column: 1; } .qi.k .ar { grid-column: 2; } .qi.k .cf { grid-column: 3; }
+.qi.k .ql { grid-column: 1; } .qi.k .pr { grid-column: 2 / 4; }
+/* Dòng nhóm */
+.qi.h { grid-template-columns: 1fr auto 34px; background: var(--accent-soft); }
+.qi.h .nm { grid-column: 1; font-weight: 700; }
+.qi.h .tt { grid-column: 2; grid-row: 1; }
+.qi.h .del { grid-column: 3; grid-row: 1; }
+.kvrow, .payrow { display: grid; gap: 8px; margin-bottom: 8px; align-items: center; }
+.kvrow { grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) 34px; }
+.payrow { grid-template-columns: 72px 14px minmax(0, 1fr) 34px; }
+.kvrow input, .payrow input { padding: 8px 10px; }
+.del { border: 0; background: none; color: var(--red); font-size: 22px; height: 44px; padding: 0; }
+label.chk { display: inline-flex; align-items: center; gap: 6px; margin: 0; font-size: 13.5px; color: var(--text); }
+label.chk input { width: 18px; min-height: 18px; height: 18px; margin: 0; }
 @media (min-width: 700px) {
   .qi { grid-template-columns: 3fr 80px 90px 140px 130px 34px; }
   .qi .nm { grid-column: auto; } .qi .del { grid-column: auto; grid-row: auto; } .qi .tt { grid-column: 5; grid-row: 1; }
+  .qi.k { grid-template-columns: 3fr 64px 84px 72px 92px 120px 130px 34px; }
+  .qi.k .nm, .qi.k .un, .qi.k .ar, .qi.k .cf, .qi.k .ql, .qi.k .pr { grid-column: auto; }
+  .qi.k .tt { grid-column: 7; grid-row: 1; } .qi.k .del { grid-column: 8; grid-row: 1; }
 }
 .totals { margin-top: 12px; }
 .totals .row { padding: 5px 0; }
@@ -213,5 +254,60 @@ label { display: block; font-size: 13px; font-weight: 600; color: var(--muted); 
   #print .entry { border-bottom: 1px solid #999; padding: 8px 0; page-break-inside: avoid; }
   #print .pimgs img { width: 150px; height: 110px; object-fit: cover; margin: 4px 4px 0 0; }
   #print .pre { white-space: pre-wrap; }
+  /* Hợp đồng */
+  #print .ct { font: 13pt/1.45 "Times New Roman", Times, serif; }
+  #print .ct h1 { font-size: 15pt; margin: 10px 0 2px; }
+  #print .ct table { margin-top: 6px; }
+  #print .ct th, #print .ct td { border: 1px solid #000; }
+  #print .ct table.nb td { border: 0; }
+  #print .ct h2 { page-break-after: avoid; }
+  /* Báo giá / khái toán theo mẫu Hữu Nhân */
+  #print .hn, #print .hn * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  #print .hn { font: 13px/1.45 "Be Vietnam Pro", Arial, sans-serif; background: #f6f2e9; border: 1px solid #e4dccb; border-radius: 16px; padding: 22px 30px; color: #262a30; }
+  #print .hn .logo { text-align: center; color: #2f3237; }
+  #print .hn .logo img { width: 150px; height: auto; display: inline-block; }
+  #print .hn .logo .nm { font: 600 16px/1.1 "Times New Roman", serif; letter-spacing: .08em; }
+  #print .hn .logo .tg { font-size: 7px; letter-spacing: .22em; }
+  #print .hn h1 { font-size: 30px; font-weight: 800; text-align: center; margin: 8px 0 2px; letter-spacing: -.01em; line-height: 1.15; }
+  #print .hn .sub { text-align: center; font-size: 14px; color: #4a4f57; }
+  #print .hn .sub.no { font-size: 12px; }
+  #print .hn h2 { display: flex; align-items: center; gap: 10px; font-size: 16px; font-weight: 800; margin: 18px 0 8px; page-break-after: avoid; }
+  #print .hn h2 i { font-style: normal; flex: none; width: 26px; height: 26px; border-radius: 50%; background: #7c9767; color: #fff; display: inline-flex; align-items: center; justify-content: center; font-size: 13px; }
+  #print .hn .box { background: #fff; border: 1px solid #ebe5d8; border-radius: 12px; padding: 10px 16px; page-break-inside: avoid; }
+  #print .hn table { border-collapse: separate; border-spacing: 0; margin: 0; }
+  #print .hn th, #print .hn td { border: 0; background: none; }
+  #print .hn table.kv td { padding: 3px 0; font-size: 13px; vertical-align: top; }
+  #print .hn table.kv td:first-child { color: #6e8a58; font-weight: 700; width: 150px; padding-right: 12px; }
+  #print .hn table.t { width: 100%; background: #fff; border: 1px solid #ebe5d8; border-radius: 12px; overflow: hidden; }
+  #print .hn table.t th { background: #383b43; color: #fff; font-weight: 600; font-size: 11.5px; padding: 8px 7px; text-align: left; }
+  #print .hn table.t td { font-size: 12.5px; padding: 6px 7px; border-top: 1px solid #efebe2; }
+  #print .hn table.t .r, #print .hn table.sum .r { text-align: right; white-space: nowrap; }
+  #print .hn table.t .c { text-align: center; }
+  #print .hn table.t tr.g td { background: #eef0e9; font-weight: 800; }
+  #print .hn table.t tr { page-break-inside: avoid; }
+  #print .hn table.sum { margin: 8px 0 0 auto; width: 340px; }
+  #print .hn table.sum td { padding: 2px 4px; font-size: 13px; }
+  #print .hn .band { display: flex; justify-content: space-between; align-items: center; gap: 16px; background: #7c9767; color: #fff; border-radius: 12px; padding: 14px 22px; margin-top: 12px; page-break-inside: avoid; }
+  #print .hn .band .l { font-size: 15px; font-weight: 700; } #print .hn .band .l.small { font-size: 12.5px; font-weight: 500; }
+  #print .hn .band .v { font-size: 30px; font-weight: 800; white-space: nowrap; }
+  #print .hn .words { font-size: 12px; font-style: italic; color: #555; margin-top: 6px; }
+  #print .hn .cap { text-align: center; font-size: 12.5px; margin-top: 6px; }
+  #print .hn .pay { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; page-break-inside: avoid; }
+  #print .hn .pay > div { background: #fff; border: 1px solid #ebe5d8; border-radius: 12px; padding: 10px 12px; }
+  #print .hn .pay .pct { color: #7c9767; font-size: 26px; font-weight: 800; line-height: 1.1; }
+  #print .hn .pay .lb { font-weight: 700; font-size: 13px; }
+  #print .hn .pay .am { font-size: 18px; font-weight: 800; margin: 4px 0; }
+  #print .hn .pay .nt { font-size: 11.5px; color: #555; }
+  #print .hn .pay .dy { display: inline-block; background: #eef0e9; border-radius: 99px; padding: 2px 10px; font-size: 11px; margin-top: 6px; font-weight: 600; }
+  #print .hn .two { display: grid; grid-template-columns: 1.2fr 1fr; gap: 10px; margin-top: 12px; page-break-inside: avoid; }
+  #print .hn .offer { border: 2px solid #7c9767; }
+  #print .hn .offer .r2 { display: flex; justify-content: space-between; gap: 10px; margin-top: 6px; }
+  #print .hn .offer .r2 b { color: #5f7a4c; white-space: nowrap; }
+  #print .hn ul { margin: 4px 0 0; padding-left: 18px; font-size: 12.5px; }
+  #print .hn .foot { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; margin-top: 18px; padding-top: 12px; border-top: 1px solid #ddd5c3; page-break-inside: avoid; }
+  #print .hn .foot small { display: block; font-size: 12px; color: #555; }
+  #print .hn .foot .ph { font-size: 28px; font-weight: 800; line-height: 1.1; }
+  #print .hn .foot .ad { text-align: right; font-weight: 700; font-size: 13px; }
+  #print .hn .foot .ad span { font-weight: 500; }
   @page { margin: 14mm; }
 }

@@ -3,7 +3,10 @@
 Ứng dụng quản lý dự án xây dựng gọn nhẹ, nằm trong thư mục [`xaydung/`](xaydung/):
 
 - **Dự án** – tổng quan hợp đồng, đã thu, đã chi, lãi tạm tính, tiến độ ngân sách.
-- **Báo giá** – lập nhanh từ mẫu hạng mục, tự tính giảm giá/VAT, đọc số tiền bằng chữ, in / lưu PDF, xuất Excel (CSV).
+- **Báo giá theo hình thức** – Thiết kế (tính phí theo diện tích × gói × K1 × K2 × K3, phí tối thiểu), Nhân công, Trọn gói thô (phần thô + NC hoàn thiện), Trọn gói hoàn thiện. Có dòng nhóm, diện tích × hệ số quy đổi, đọc số tiền bằng chữ.
+  - Thiết kế, Nhân công, Trọn gói thô: in / lưu PDF theo mẫu Hữu Nhân, **xuất Excel (.xlsx có công thức)**, **soạn hợp đồng** (sửa trực tiếp, in PDF, tải Word, lưu vào Hồ sơ).
+  - Trọn gói hoàn thiện: **xuất bảng khái toán** (PDF).
+- **Ảnh phối cảnh 3D** cho từng dự án, hiện trên thẻ dự án.
 - **Nhật ký thi công** – thời tiết, nhân công, công việc, vướng mắc, ảnh hiện trường; in báo cáo.
 - **Chi phí** – ghi thu chi theo nhóm (vật tư, nhân công, thầu phụ…), cơ cấu chi phí, xuất Excel.
 - **Hồ sơ** – lưu ảnh chụp / file hợp đồng, phiếu đề nghị cấp vật tư, biên bản nghiệm thu, giấy tạm ứng, giấy ủy quyền theo từng dự án.
