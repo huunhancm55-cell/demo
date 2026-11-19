@@ -32,7 +32,7 @@ function docSo(n) {
     let s = (t || full) ? d[t] + ' trăm' : '';
     if (c > 1) s += ' ' + d[c] + ' mươi' + (v === 1 ? ' mốt' : v === 5 ? ' lăm' : v ? ' ' + d[v] : '');
     else if (c === 1) s += ' mười' + (v === 5 ? ' lăm' : v ? ' ' + d[v] : '');
-    else if (v) s += ((t || full) ? ' lẻ ' : ' ') + d[v];
+    else if (v) s += ((t || full) ? ' linh ' : ' ') + d[v];
     return s.trim();
   };
   const g = [];

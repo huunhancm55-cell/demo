@@ -5,7 +5,7 @@ const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI'
 const cityOf = addr => (String(addr || '').split(',').pop() || '').replace(/^\s*(tỉnh|tp\.?|thành phố)\s+/i, '').trim();
 const dateLong = iso => {
   const [y, m, d] = String(iso || '').split('-');
-  return y ? `ngày ${d} tháng ${m} năm ${y}` : 'ngày …… tháng …… năm ……';
+  return y ? `ngày ${d} tháng ${m} năm ${y}` : `ngày …… tháng …… năm ${new Date().getFullYear()}`;
 };
 const safeName = s => String(s || '').replace(/[\\/:*?"<>|]+/g, '').replace(/\s+/g, ' ').trim();
 const docFileName = (q, ext) => `${safeName(q.no || 'Bao gia')} - ${safeName(pname(q.projectId))}.${ext}`;
@@ -348,7 +348,7 @@ function quoteDocHTML(q) {
 }
 
 // ======================= Hợp đồng =======================
-const CT_LAW = ['Bộ luật Dân sự năm 2015;', 'Luật Xây dựng số 135/2025/QH15;', 'Nghị định 210/2026/NĐ-CP về hợp đồng xây dựng;', 'Nghị định 207/2026/NĐ-CP về quản lý chất lượng, thi công xây dựng và bảo trì công trình xây dựng;'];
+const CT_LAW = ['Bộ luật Dân sự năm 2015;', 'Luật Xây dựng số 135/2025/QH15;', 'Nghị định 210/2026/NĐ-CP về hợp đồng xây dựng;', 'Nghị định 207/2026/NĐ-CP về quản lý chất lượng, bảo trì công trình xây dựng;'];
 
 function contractValue(q, ct) {
   const t = qTotal(q), deduct = q.form === 'rough' ? Math.max(0, +ct.deduct || 0) : 0;
@@ -360,7 +360,7 @@ function contractHTML(q, ct) {
   const f = (v, w = '……………………') => (v != null && String(v).trim() !== '' ? esc(v) : w);
   const ul = a => `<ul>${a.map(x => `<li>${x}</li>`).join('')}</ul>`;
   const ol = a => `<ol>${a.map(x => `<li>${x}</li>`).join('')}</ol>`;
-  const tb = (head, rows) => `<table><tr>${head.map(x => `<th>${x}</th>`).join('')}</tr>${rows.map(r => `<tr>${r.map(c => (typeof c === 'string' ? `<td>${c}</td>` : `<td class="${c[1]}">${c[0]}</td>`)).join('')}</tr>`).join('')}</table>`;
+  const tb = (head, rows) => `<table>${head ? `<tr>${head.map(x => `<th>${x}</th>`).join('')}</tr>` : ''}${rows.map(r => `<tr>${r.map(c => (typeof c === 'string' ? `<td>${c}</td>` : `<td class="${c[1]}">${c[0]}</td>`)).join('')}</tr>`).join('')}</table>`;
   let art = 0;
   const A = x => `<h2>Điều ${++art}. ${x}</h2>`;
   const vatText = q.vat ? `đã bao gồm thuế VAT ${fmt(q.vat)}%` : 'chưa bao gồm thuế VAT';
@@ -368,14 +368,17 @@ function contractHTML(q, ct) {
   const payTable = tb(['Đợt', 'Thời điểm', 'Tỷ lệ', 'Số tiền tạm tính (đ)'],
     [...pays.map((x, i) => [[i + 1, 'c'], esc(x.label), [fmt(x.pct) + '%', 'c'], [fmt(am[i]), 'r']]),
       ['', '<b>Tổng cộng</b>', [`<b>${fmt(pctSum)}%</b>`, 'c'], [`<b>${fmt(am.reduce((a, b) => a + b, 0))}</b>`, 'r']]]);
-  const design = q.form === 'design';
+  const design = q.form === 'design', person = ct.bMode === 'person', b = ct.b || {};
+  const words = v => `(<i>${docSo(v)}</i>)`;
 
-  let h = `<p class="c"><b>CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</b><br><b>Độc lập – Tự do – Hạnh phúc</b><br>———————</p>
+  let h = `<p class="c"><b>CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</b><br><b><u>Độc lập – Tự do – Hạnh phúc</u></b></p>
 <h1>${F.ct}</h1><p class="c">Số: ${f(ct.no)}</p>
 <p><b>Căn cứ:</b></p>${ul([...CT_LAW, ...(design ? [] : [`Hồ sơ thiết kế và bảng báo giá số ${f(q.no)} ngày ${fdate(q.date)} đã được hai bên thống nhất;`]), design ? 'Nhu cầu và thỏa thuận của hai bên.' : 'Nhu cầu và khả năng của hai bên.'])}
 <p>Hôm nay, ${dateLong(ct.date)}, tại ${f(ct.place)}, chúng tôi gồm:</p>
-<p><b>BÊN A (CHỦ ĐẦU TƯ)</b></p>${ul([`Ông/Bà: <b>${f(ct.aName)}</b>&nbsp;&nbsp;&nbsp; Năm sinh: ${f(ct.aYob, '…………')}`, `CCCD số: ${f(ct.aId)}&nbsp;&nbsp;&nbsp; Cấp ngày: ${f(ct.aIdDate, '…………')}&nbsp;&nbsp;&nbsp; Nơi cấp: ${f(ct.aIdPlace)}`, `Địa chỉ thường trú: ${f(ct.aAddr)}`, `Điện thoại: ${f(ct.aPhone)}`])}
-<p><b>BÊN B (${F.sideB})</b></p>${ul([`Tên đơn vị: <b>${f((s.company || '').toUpperCase())}</b>`, `Mã số doanh nghiệp: ${f(s.tax)}`, `Địa chỉ: ${f(s.address)}`, `Điện thoại: ${f(s.phone)}`, `Đại diện: ${f(s.rep)}&nbsp;&nbsp;&nbsp; Chức vụ: ${f(s.repTitle)}`, `Tài khoản: ${f(s.bank)}`])}`;
+<p><b>BÊN A (CHỦ ĐẦU TƯ)</b></p>${ul([`Ông/Bà: <b>${f(ct.aName)}</b>&nbsp;&nbsp;&nbsp; Năm sinh: ${f(ct.aYob, '…………')}`, `CCCD số: ${f(ct.aId)}&nbsp;&nbsp;&nbsp; Cấp ngày: ${f(ct.aIdDate, '…………')}&nbsp;&nbsp;&nbsp; Nơi cấp: ${f(ct.aIdPlace)}`, `Địa chỉ thường trú: ${f(ct.aAddr)}`, `Điện thoại: ${f(ct.aPhone)}`, ...(ct.aContact ? [`Người liên hệ về thiết kế: ${esc(ct.aContact)} – Điện thoại: ${f(ct.aContactPhone)}`] : [])])}
+<p><b>BÊN B (${F.sideB})</b></p>${person
+    ? ul([`Ông/Bà: <b>${f((b.name || '').toUpperCase())}</b>&nbsp;&nbsp;&nbsp; Ngày sinh: ${f(b.dob, '…………')}`, `CCCD số: ${f(b.id)}&nbsp;&nbsp;&nbsp; Cấp ngày: ${f(b.idDate, '…………')}&nbsp;&nbsp;&nbsp; Nơi cấp: ${f(b.idPlace)}`, `Nơi thường trú: ${f(b.addr)}`, `Điện thoại: ${f(b.phone)}`, `Tài khoản: ${f(b.bank, '…………………… tại Ngân hàng ……………………')}`])
+    : ul([`Tên đơn vị: <b>${f((s.company || '').toUpperCase())}</b>`, `Mã số doanh nghiệp: ${f(s.tax)}`, `Địa chỉ: ${f(s.address)}`, `Điện thoại: ${f(s.phone)}`, `Đại diện: ${f(s.rep)}&nbsp;&nbsp;&nbsp; Chức vụ: ${f(s.repTitle)}`, `Tài khoản: ${f(s.bank)}`])}`;
 
   if (design) {
     const d = t.dz, P = d.P, pk = (q.dz || {}).pkg || 'G2';
@@ -388,20 +391,24 @@ function contractHTML(q, ct) {
     const step2 = pk === 'G3' ? 'Phối cảnh 3D nội thất' : pk === 'G4' ? 'Phối cảnh 3D mặt tiền và nội thất' : 'Phối cảnh 3D mặt tiền';
     const days = i => f((pays[i] || {}).days || FORMS.design.pay[i].days);
     const items = q.items.filter(i => !i.head);
+    // Các sàn 100% cùng diện tích thì ghi "X m²/sàn" như mẫu hợp đồng
+    const floors = items.filter(i => +i.coef === 100 && +i.area > 0), perFloor = floors.length && floors.every(i => +i.area === +floors[0].area) ? `${fmt(floors[0].area)} m²/sàn` : '';
+    const pkgName = 'gói ' + P.name.replace(/^G\d\s*–\s*/, '').toLowerCase();
+    const formula = P.k ? `Diện tích tính phí × ${fmt(P.base)} đ/m² × ${fmt(d.k1)} (${d.k1s}) × K2 (quy mô) × ${fmt(d.k3)} (${d.k3s})` : `Diện tích tính phí × ${fmt(P.base)} đ/m² (gói G1 không nhân hệ số)`;
     h += `<p>Hai bên thống nhất ký hợp đồng tư vấn thiết kế với các điều khoản sau:</p>
 ${A('Nội dung công việc')}<p>Bên A giao, Bên B nhận tư vấn thiết kế công trình sau:</p>
-${tb(['Hạng mục', 'Nội dung'], [['Công trình', f(ct.work)], ['Địa điểm xây dựng', f(ct.site)], ['Diện tích khu đất', f(ct.land)], ['Diện tích xây dựng', 'Tạm tính theo bảng tại Điều 3; chính thức theo mặt bằng được Bên A duyệt'], ['Công năng', 'Theo yêu cầu của Bên A, thống nhất khi chốt mặt bằng']])}
-<p>Phạm vi thiết kế (${esc(P.name)}):</p>${ol(scope[pk].map(esc))}
+${tb(null, [['Công trình', f(ct.work)], ['Địa điểm xây dựng', f(ct.site)], ['Diện tích khu đất', f(ct.land)], ['Diện tích xây dựng', `Tạm tính ${perFloor || 'theo bảng tại Điều 3'}; chính thức theo mặt bằng được Bên A duyệt`], ['Công năng', 'Theo yêu cầu của Bên A, thống nhất khi chốt mặt bằng']])}
+<p>Phạm vi thiết kế (${esc(pkgName)}):</p>${ol(scope[pk].map(esc))}
 <p>Không bao gồm: khảo sát địa chất, thẩm tra thiết kế, hồ sơ PCCC${pk === 'G3' || pk === 'G4' ? '' : ', thiết kế nội thất'}, sân vườn, cổng, tường rào và các công trình phụ. Các hạng mục này nếu Bên A có nhu cầu sẽ thỏa thuận bằng phụ lục riêng.</p>
 ${A('Hồ sơ bàn giao, tiến độ và chỉnh sửa')}<p><b>Hồ sơ bàn giao:</b> 2 bộ bản vẽ khổ A3 có ký tên + file PDF${pk === 'G1' || pk === 'G3' ? '' : '; 1 bộ hồ sơ xin phép xây dựng'}.</p>
 <p><b>Tiến độ</b> (tính theo ngày làm việc, không tính thời gian Bên A xem và góp ý):</p>
 ${tb(['Bước', 'Công việc', 'Thời gian'], [[['1', 'c'], 'Khảo sát, lên mặt bằng bố trí', `${days(0)} kể từ khi ký hợp đồng và nhận tạm ứng`], [['2', 'c'], step2, `${days(1)} kể từ khi Bên A chốt mặt bằng`], [['3', 'c'], 'Hồ sơ kỹ thuật và hồ sơ xin phép', `${days(2)} kể từ khi Bên A duyệt 3D`]])}
 <p><b>Chỉnh sửa:</b> mặt bằng được chỉnh sửa đến khi Bên A chốt. Phối cảnh 3D được chỉnh sửa 3 lần; từ lần thứ 4, Bên A trả thêm 25% đơn giá cho phần sửa. Thay đổi lớn về công năng sau khi đã duyệt 3D được tính là phát sinh và hai bên thỏa thuận bằng phụ lục.</p>
-${A('Giá trị hợp đồng')}<p>Giá trị hợp đồng tạm tính là <b>${fmt(value)} đồng</b> (${docSo(value)}), tính theo công thức: Diện tích tính phí × ${dzFormula(d)}${q.discount ? `, đã giảm ${fmt(q.discount)}%` : ''}.</p>
+${A('Giá trị hợp đồng')}<p>Giá trị hợp đồng tạm tính là <b>${fmt(value)} đồng</b> ${words(value)}, tính theo công thức: ${formula}${q.discount ? `, đã giảm ${fmt(q.discount)}%` : ''}.</p>
 ${tb(['Tầng / hạng mục', 'Diện tích xây dựng (m²)', 'Tỷ lệ tính phí', 'Diện tích tính phí (m²)'], [...items.map(i => [esc(i.name), [+i.area > 0 ? fmt(i.area) : '–', 'r'], [+i.coef > 0 ? fmt(i.coef) + '%' : '–', 'c'], [fmt(iq(i)), 'r']]), ['<b>Tổng</b>', '', '', [`<b>${fmt(d.area)}</b>`, 'r']]])}
 ${P.k ? `<p>Hệ số quy mô K2: dưới 100 m² là 1,0 (áp phí tối thiểu); từ 100 đến dưới 200 m² là 1,1; từ 200 đến dưới 400 m² là 1,0; từ 400 đến dưới 800 m² là 0,9; từ 800 m² là 0,8. Diện tích tạm tính ${fmt(d.area)} m² nên K2 = ${fmt(d.k2)}.</p>` : ''}
 ${t.minApplied ? `<p>Phí tính theo công thức thấp hơn phí tối thiểu của gói nên áp phí tối thiểu ${fmt(d.min)} đồng.</p>` : ''}
-<p>Diện tích trên là tạm tính. Giá trị quyết toán tính lại theo diện tích trên mặt bằng Bên A đã duyệt, cùng công thức và đơn giá nêu trên; phần chênh lệch được cộng hoặc trừ vào đợt thanh toán 2 và 3. Giá trị hợp đồng ${pk === 'G1' || pk === 'G3' ? '' : 'đã bao gồm dịch vụ nộp hồ sơ xin phép xây dựng, '}${vatText}.</p>
+<p>Diện tích trên là tạm tính${perFloor ? ' ' + perFloor : ''}. Giá trị quyết toán tính lại theo diện tích trên mặt bằng Bên A đã duyệt, cùng công thức và đơn giá nêu trên; phần chênh lệch được cộng hoặc trừ vào đợt thanh toán 2 và 3. Giá trị hợp đồng ${pk === 'G1' || pk === 'G3' ? '' : 'đã bao gồm dịch vụ nộp hồ sơ xin phép xây dựng, '}${vatText}.</p>
 ${A('Thanh toán')}${payTable}
 <p>Bên A thanh toán trong 3 ngày kể từ khi đạt điều kiện từng đợt, bằng tiền mặt hoặc chuyển khoản vào tài khoản của Bên B nêu trên. Bên B bắt đầu thực hiện sau khi nhận đợt 1.</p>`;
     if (P.offer) {
@@ -444,8 +451,8 @@ ${A('Vật tư')}${ul(labor ? [
       'Bên A cung cấp vật tư hoàn thiện đúng chủng loại, đúng thời gian theo yêu cầu Bên B báo trước 3 ngày; Bên A chậm cấp vật tư thì tiến độ được lùi tương ứng.',
       'Bên A tự mua vật tư khác với vật tư Bên B đã báo giá, hoặc thuê đơn vị khác làm hạng mục đã báo giá: Bên A trả Bên B 10% giá trị vật tư đã báo giá của phần đó.',
     ])}
-${A('Giá trị hợp đồng')}<p>Giá trị hợp đồng tạm tính là <b>${fmt(t.total)} đồng</b> (${docSo(t.total)}), ${vatText}.</p>
-${deduct ? `<p>Khấu trừ phí thiết kế Bên A đã thanh toán: <b>${fmt(deduct)} đồng</b>. Giá trị hợp đồng sau khấu trừ: <b>${fmt(value)} đồng</b> (${docSo(value)}).</p>` : ''}
+${A('Giá trị hợp đồng')}<p>Giá trị hợp đồng tạm tính là <b>${fmt(t.total)} đồng</b> ${words(t.total)}, ${vatText}.</p>
+${deduct ? `<p>Khấu trừ phí thiết kế Bên A đã thanh toán: <b>${fmt(deduct)} đồng</b>. Giá trị hợp đồng sau khấu trừ: <b>${fmt(value)} đồng</b> ${words(value)}.</p>` : ''}
 <p>Giá trị quyết toán tính theo khối lượng thực tế được hai bên nghiệm thu, áp dụng đơn giá tại Điều 1. Khối lượng phát sinh thực hiện theo Điều 7.</p>
 ${A('Thanh toán')}${payTable}
 <p>Bên A thanh toán trong 3 ngày kể từ khi đạt điều kiện từng đợt, bằng tiền mặt hoặc chuyển khoản vào tài khoản của Bên B nêu trên. Phát sinh (nếu có) được cộng vào đợt thanh toán kế tiếp hoặc khi quyết toán.</p>
@@ -475,7 +482,7 @@ ${A('Bất khả kháng')}<p>Thiên tai, dịch bệnh, thay đổi chính sách
 ${A('Giải quyết tranh chấp và hiệu lực')}<p>Tranh chấp trước hết được hai bên thương lượng. Nếu không thương lượng được, một trong hai bên có quyền đưa ra Tòa án nhân dân có thẩm quyền giải quyết.</p>
 <p>Hợp đồng có hiệu lực từ ngày ký và được thanh lý trong 15 ngày sau khi hai bên hoàn thành nghĩa vụ. Hợp đồng lập thành 2 bản có giá trị như nhau, mỗi bên giữ 1 bản.</p>`;
   }
-  h += `<table class="nb signs"><tr><td class="c"><b>ĐẠI DIỆN BÊN A</b><br><i>(Ký, ghi rõ họ tên)</i><br><br><br><br><br><b>${esc(ct.aName || '')}</b></td><td class="c"><b>ĐẠI DIỆN BÊN B</b><br><i>(Ký, ghi rõ họ tên, đóng dấu)</i><br><br><br><br><br><b>${esc(s.rep || '')}</b></td></tr></table>`;
+  h += `<table class="nb signs"><tr><td class="c"><b>ĐẠI DIỆN BÊN A</b><br><i>(Ký, ghi rõ họ tên)</i><br><br><br><br><br><b>${f(ct.aName, '……………………………')}</b></td><td class="c"><b>ĐẠI DIỆN BÊN B</b><br><i>(Ký, ghi rõ họ tên${person ? '' : ', đóng dấu'})</i><br><br><br><br><br><b>${esc(person ? (b.name || '') : (s.rep || ''))}</b></td></tr></table>`;
   return h;
 }
 
@@ -501,10 +508,13 @@ function openContract(qid) {
   };
   for (const k in defs) if (ct[k] === undefined) ct[k] = defs[k];
   if (!Array.isArray(ct.pay) || !ct.pay.length) ct.pay = F.pay.map(x => ({ ...x }));
+  // Bên B: cá nhân (nhớ thông tin lần trước) hoặc công ty
+  if (!ct.b) ct.b = { ...(s.lastB || {}) };
+  if (!ct.bMode) ct.bMode = ct.b.name ? 'person' : 'company';
   const design = q.form === 'design';
   const fields = [
     ['Hợp đồng', [['no', 'Số hợp đồng'], ['date', 'Ngày ký', 'date'], ['place', 'Nơi ký', '', 1]]],
-    ['Bên A (chủ đầu tư)', [['aName', 'Họ tên', '', 1], ['aYob', 'Năm sinh'], ['aPhone', 'Điện thoại', 'tel'], ['aId', 'CCCD số'], ['aIdDate', 'Cấp ngày'], ['aIdPlace', 'Nơi cấp', '', 1], ['aAddr', 'Địa chỉ thường trú', '', 1]]],
+    ['Bên A (chủ đầu tư)', [['aName', 'Họ tên', '', 1], ['aYob', 'Năm sinh'], ['aPhone', 'Điện thoại', 'tel'], ['aId', 'CCCD số'], ['aIdDate', 'Cấp ngày'], ['aIdPlace', 'Nơi cấp', '', 1], ['aAddr', 'Địa chỉ thường trú', '', 1], ['aContact', 'Người liên hệ (nếu khác Bên A)'], ['aContactPhone', 'Điện thoại người liên hệ', 'tel']]],
     ['Công trình', [['work', 'Công trình', '', 1], ['site', 'Địa điểm xây dựng', '', 1],
       ...(design ? [['land', 'Diện tích khu đất', '', 1]] : [['start', 'Ngày khởi công', 'date'], ['days', 'Thời gian thi công (ngày)', 'num'], ['warranty', 'Bảo hành (tháng)', 'num'],
         ...(q.form === 'rough' ? [['deduct', 'Khấu trừ phí thiết kế đã trả (₫)', 'money']] : [])])]],
@@ -517,8 +527,11 @@ function openContract(qid) {
       <div class="bold small mt mb">Đợt thanh toán</div><div id="ctPay"></div>
       <button class="linkbtn" type="button" id="ctPayAdd">+ Thêm đợt</button>
       <div class="bold small mt mb">Bên B</div>
-      <p class="small">${esc(s.company || '')}<br>Đại diện: ${s.rep ? esc(s.rep) : '<span class="neg">chưa nhập</span>'}${s.repTitle ? ' – ' + esc(s.repTitle) : ''}<br>Tài khoản: ${s.bank ? esc(s.bank) : '<span class="neg">chưa nhập</span>'}</p>
-      <p class="small muted">Sửa thông tin Bên B trong Cài đặt → Thông tin công ty.</p>
+      <select id="ctBMode" class="mb"><option value="person"${ct.bMode === 'person' ? ' selected' : ''}>Cá nhân đứng tên</option><option value="company"${ct.bMode === 'company' ? ' selected' : ''}>Công ty đứng tên</option></select>
+      <div id="ctBPerson" class="fields"${ct.bMode === 'person' ? '' : ' hidden'}>${[['name', 'Họ tên', '', 1], ['dob', 'Ngày sinh'], ['phone', 'Điện thoại', 'tel'], ['id', 'CCCD số'], ['idDate', 'Cấp ngày'], ['idPlace', 'Nơi cấp', '', 1], ['addr', 'Nơi thường trú', '', 1], ['bank', 'Tài khoản – ngân hàng', '', 1]]
+        .map(([k, label, type, full]) => `<div class="${full ? 'full' : ''}"><label>${label}</label><input data-cb="${k}"${type === 'tel' ? ' inputmode="tel"' : ''} value="${esc(ct.b[k] || '')}"></div>`).join('')}</div>
+      <div id="ctBCompany"${ct.bMode === 'company' ? '' : ' hidden'}><p class="small">${esc(s.company || '')}<br>Đại diện: ${s.rep ? esc(s.rep) : '<span class="neg">chưa nhập</span>'}${s.repTitle ? ' – ' + esc(s.repTitle) : ''}<br>Tài khoản: ${s.bank ? esc(s.bank) : '<span class="neg">chưa nhập</span>'}</p>
+      <p class="small muted">Sửa thông tin công ty trong Cài đặt → Thông tin công ty.</p></div>
     </div>
     <div class="ctprev">
       <div class="row between wrap mb" style="gap:8px"><b>Bản hợp đồng</b><div class="btns"><button class="btn sm" type="button" id="ctRegen" hidden>↻ Tạo lại theo thông tin</button><button class="btn sm" type="button" id="ctPrint">🖨 In / lưu PDF</button><button class="btn sm" type="button" id="ctWord">⬇ Tải Word</button></div></div>
@@ -542,6 +555,8 @@ function openContract(qid) {
     const t = e.target;
     if (t.closest('#ctDoc')) { edited = true; $c('#ctRegen').hidden = false; return; }
     if (t.dataset.ct) { const k = t.dataset.ct; ct[k] = k === 'deduct' ? num(t.value) : t.value; changed(); }
+    else if (t.dataset.cb) { ct.b[t.dataset.cb] = t.value; S.settings.lastB = { ...ct.b }; changed(); }
+    else if (t.id === 'ctBMode') { ct.bMode = t.value; $c('#ctBPerson').hidden = t.value !== 'person'; $c('#ctBCompany').hidden = t.value !== 'company'; changed(); }
     else if (t.dataset.pk) {
       const x = ct.pay[+t.closest('.payrow').dataset.n];
       x[t.dataset.pk] = t.dataset.pk === 'pct' ? dec(t.value) : t.value;
