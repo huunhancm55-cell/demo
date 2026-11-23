@@ -360,7 +360,7 @@ function contractHTML(q, ct) {
   const f = (v, w = '……………………') => (v != null && String(v).trim() !== '' ? esc(v) : w);
   const ul = a => `<ul>${a.map(x => `<li>${x}</li>`).join('')}</ul>`;
   const ol = a => `<ol>${a.map(x => `<li>${x}</li>`).join('')}</ol>`;
-  const tb = (head, rows) => `<table>${head ? `<tr>${head.map(x => `<th>${x}</th>`).join('')}</tr>` : ''}${rows.map(r => `<tr>${r.map(c => (typeof c === 'string' ? `<td>${c}</td>` : `<td class="${c[1]}">${c[0]}</td>`)).join('')}</tr>`).join('')}</table>`;
+  const tb = (head, rows) => `<table>${head ? `<tr>${head.map(x => `<th bgcolor="#eeeeee" style="background-color:#eeeeee">${x}</th>`).join('')}</tr>` : ''}${rows.map(r => `<tr>${r.map(c => (typeof c === 'string' ? `<td>${c}</td>` : `<td class="${c[1]}">${c[0]}</td>`)).join('')}</tr>`).join('')}</table>`;
   let art = 0;
   const A = x => `<h2>Điều ${++art}. ${x}</h2>`;
   const vatText = q.vat ? `đã bao gồm thuế VAT ${fmt(q.vat)}%` : 'chưa bao gồm thuế VAT';
@@ -375,9 +375,9 @@ function contractHTML(q, ct) {
 <h1>${F.ct}</h1><p class="c">Số: ${f(ct.no)}</p>
 <p><b>Căn cứ:</b></p>${ul([...CT_LAW, ...(design ? [] : [`Hồ sơ thiết kế và bảng báo giá số ${f(q.no)} ngày ${fdate(q.date)} đã được hai bên thống nhất;`]), design ? 'Nhu cầu và thỏa thuận của hai bên.' : 'Nhu cầu và khả năng của hai bên.'])}
 <p>Hôm nay, ${dateLong(ct.date)}, tại ${f(ct.place)}, chúng tôi gồm:</p>
-<p><b>BÊN A (CHỦ ĐẦU TƯ)</b></p>${ul([`Ông/Bà: <b>${f(ct.aName)}</b>&nbsp;&nbsp;&nbsp; Năm sinh: ${f(ct.aYob, '…………')}`, `CCCD số: ${f(ct.aId)}&nbsp;&nbsp;&nbsp; Cấp ngày: ${f(ct.aIdDate, '…………')}&nbsp;&nbsp;&nbsp; Nơi cấp: ${f(ct.aIdPlace)}`, `Địa chỉ thường trú: ${f(ct.aAddr)}`, `Điện thoại: ${f(ct.aPhone)}`, ...(ct.aContact ? [`Người liên hệ về thiết kế: ${esc(ct.aContact)} – Điện thoại: ${f(ct.aContactPhone)}`] : [])])}
+<p><b>BÊN A (CHỦ ĐẦU TƯ)</b></p>${ul([`Ông/Bà: <b>${f(ct.aName)}</b>`, `CCCD số: ${f(ct.aId)}&nbsp;&nbsp;&nbsp; Cấp ngày: ${f(ct.aIdDate, '…………')}&nbsp;&nbsp;&nbsp; Nơi cấp: ${f(ct.aIdPlace)}`, `Điện thoại: ${f(ct.aPhone)}`, ...(ct.aContact ? [`Người liên hệ về thiết kế: ${esc(ct.aContact)} – Điện thoại: ${f(ct.aContactPhone)}`] : [])])}
 <p><b>BÊN B (${F.sideB})</b></p>${person
-    ? ul([`Ông/Bà: <b>${f((b.name || '').toUpperCase())}</b>&nbsp;&nbsp;&nbsp; Ngày sinh: ${f(b.dob, '…………')}`, `CCCD số: ${f(b.id)}&nbsp;&nbsp;&nbsp; Cấp ngày: ${f(b.idDate, '…………')}&nbsp;&nbsp;&nbsp; Nơi cấp: ${f(b.idPlace)}`, `Nơi thường trú: ${f(b.addr)}`, `Điện thoại: ${f(b.phone)}`, `Tài khoản: ${f(b.bank, '…………………… tại Ngân hàng ……………………')}`])
+    ? ul([`Ông/Bà: <b>${f((b.name || '').toUpperCase())}</b>${(b.dob || '').trim() ? `&nbsp;&nbsp;&nbsp; Ngày sinh: ${esc(b.dob)}` : ''}`, `CCCD số: ${f(b.id)}&nbsp;&nbsp;&nbsp; Cấp ngày: ${f(b.idDate, '…………')}&nbsp;&nbsp;&nbsp; Nơi cấp: ${f(b.idPlace)}`, ...((b.addr || '').trim() ? [`Nơi thường trú: ${esc(b.addr)}`] : []), `Điện thoại: ${f(b.phone)}`, `Tài khoản: ${f(b.bank, '…………………… tại Ngân hàng ……………………')}`])
     : ul([`Tên đơn vị: <b>${f((s.company || '').toUpperCase())}</b>`, `Mã số doanh nghiệp: ${f(s.tax)}`, `Địa chỉ: ${f(s.address)}`, `Điện thoại: ${f(s.phone)}`, `Đại diện: ${f(s.rep)}&nbsp;&nbsp;&nbsp; Chức vụ: ${f(s.repTitle)}`, `Tài khoản: ${f(s.bank)}`])}`;
 
   if (design) {
@@ -424,23 +424,28 @@ ${A('Giải quyết tranh chấp và hiệu lực')}<p>Tranh chấp trước h�
 <p>Hợp đồng có hiệu lực từ ngày ký và tự thanh lý khi Bên B bàn giao đủ hồ sơ và Bên A thanh toán đủ. Hợp đồng lập thành 2 bản có giá trị như nhau, mỗi bên giữ 1 bản.</p>`;
   } else {
     const labor = q.form === 'labor', K = !!q.coef;
-    let gi = 0, n = 0;
-    const rows = q.items.map((it, idx) => {
-      if (it.head) { n = 0; return [[`<b>${ROMAN[gi++] || ''}</b>`, 'c'], `<b>${esc(it.name)}</b>`, '', '', '', [`<b>${fmt(groupSum(q, idx, t))}</b>`, 'r']]; }
+    // Bảng giá gọn, màu xanh như bảng báo giá Excel của công ty (kiểu ghi thẳng vào thẻ để Word giữ nguyên)
+    // bgcolor + đường kẻ ghi vào từng ô: Word, LibreOffice và trình duyệt đều hiểu giống nhau
+    const BLUE = { bg: '#2AA8E0', st: 'color:#ffffff;' }, LIGHT = { bg: '#E6F4FB', st: 'font-weight:bold;' }, BD = 'border:1px solid #000000;';
+    const th = x => `<th bgcolor="${BLUE.bg}" style="background-color:${BLUE.bg};${BLUE.st}${BD}text-align:center;vertical-align:middle;white-space:nowrap">${x}</th>`;
+    const td = (x, a = 'left', fill = null, span = 1) => `<td${span > 1 ? ` colspan="${span}"` : ''}${fill ? ` bgcolor="${fill.bg}"` : ''} style="${fill ? `background-color:${fill.bg};${fill.st}` : ''}${BD}text-align:${a};${a !== 'left' ? 'white-space:nowrap;' : ''}">${x}</td>`;
+    let gi = 0, n = 0, body = '';
+    q.items.forEach((it, idx) => {
+      if (it.head) { n = 0; body += `<tr>${td(ROMAN[gi++] || '', 'center', LIGHT)}${td(esc(it.name), 'left', LIGHT, 4)}${td(fmt(groupSum(q, idx, t)), 'right', LIGHT)}</tr>`; return; }
       n++;
       const kl = iq(it), auto = K && +it.area > 0 && +it.coef > 0;
-      return [[n, 'c'], esc(it.name) + (auto ? ` <i>(${fmt(it.area)} m² × ${fmt(it.coef)}%)</i>` : ''), [esc(auto ? 'm²' : it.unit), 'c'], [fmt(kl), 'r'], [fmt(+it.price || 0), 'r'], [fmt(t.line(it)), 'r']];
+      body += `<tr>${td(n, 'center')}${td(esc(it.name) + (auto ? ` <i>(${fmt(it.area)} m² × ${fmt(it.coef)}%)</i>` : ''))}${td(esc(auto ? 'm²' : it.unit), 'center')}${td(fmt(kl), 'right')}${td(fmt(+it.price || 0), 'right')}${td(fmt(t.line(it)), 'right')}</tr>`;
     });
-    const totalRows = [];
-    if (t.disc) totalRows.push(['', `Giảm giá ${fmt(q.discount)}%`, '', '', '', [`−${fmt(t.disc)}`, 'r']]);
-    if (t.vat) totalRows.push(['', `Thuế VAT ${fmt(q.vat)}%`, '', '', '', [fmt(t.vat), 'r']]);
-    totalRows.push(['', '<b>Tổng cộng</b>', '', '', '', [`<b>${fmt(t.total)}</b>`, 'r']]);
+    if (t.disc) body += `<tr>${td(`Giảm giá ${fmt(q.discount)}%`, 'right', '', 5)}${td('−' + fmt(t.disc), 'right')}</tr>`;
+    if (t.vat) body += `<tr>${td(`Thuế VAT ${fmt(q.vat)}%`, 'right', '', 5)}${td(fmt(t.vat), 'right')}</tr>`;
+    body += `<tr>${td('<b>TỔNG CỘNG</b>', 'center', BLUE, 5)}${td(`<b>${fmt(t.total)}</b>`, 'right', BLUE)}</tr>`;
+    const priceTable = `<table class="qt"><tr>${th('STT')}${th('NỘI DUNG CÔNG VIỆC')}${th('ĐVT')}${th('KHỐI LƯỢNG<br>(tạm tính)')}${th('ĐƠN GIÁ<br>(VNĐ)')}${th('THÀNH TIỀN<br>(VNĐ)')}</tr>${body}</table>`;
     const end = ct.start && +ct.days ? (() => { const x = new Date(ct.start + 'T00:00:00'); x.setDate(x.getDate() + (+ct.days)); return `${pad(x.getDate())}/${pad(x.getMonth() + 1)}/${x.getFullYear()}`; })() : '';
     h += `<p>Hai bên thống nhất ký hợp đồng thi công xây dựng với các điều khoản sau:</p>
 ${A('Nội dung công việc')}<p>Bên A giao, Bên B nhận thi công công trình: <b>${f(ct.work)}</b> tại ${f(ct.site)}, theo hồ sơ thiết kế được hai bên thống nhất.</p>
 <p><b>Hình thức:</b> ${labor ? 'Bên B nhận khoán nhân công thi công phần thô và hoàn thiện; Bên A cung cấp toàn bộ vật tư, thiết bị, điện nước thi công.' : 'Bên B cung cấp vật tư phần thô và toàn bộ nhân công thi công phần thô và hoàn thiện; Bên A cung cấp vật tư hoàn thiện (gạch ốp lát, sơn, thiết bị điện nước, cửa, đá…).'}</p>
 <p>Khối lượng và đơn giá (khối lượng tạm tính):</p>
-${tb(['STT', 'Nội dung công việc', 'ĐVT', 'Khối lượng', 'Đơn giá (đ)', 'Thành tiền (đ)'], [...rows, ...totalRows])}
+${priceTable}
 ${A('Vật tư')}${ul(labor ? [
       'Bên A cung cấp đầy đủ vật tư, thiết bị, điện nước thi công đúng chủng loại, đúng thời gian theo yêu cầu Bên B báo trước 3 ngày.',
       'Bên B kiểm tra vật tư khi nhận; vật tư không đạt chất lượng thì báo Bên A để thay, không đưa vào sử dụng.',
@@ -490,8 +495,8 @@ const wordDoc = (title, body) => `<html xmlns:o="urn:schemas-microsoft-com:offic
 <!--[if gte mso 9]><xml><w:WordDocument><w:View>Print</w:View><w:Zoom>100</w:Zoom></w:WordDocument></xml><![endif]-->
 <style>@page WordSection1{size:21cm 29.7cm;margin:2cm 2cm 2cm 2.5cm}div.WordSection1{page:WordSection1}
 body{font-family:"Times New Roman",serif;font-size:13pt;line-height:1.35}h1{font-size:15pt;text-align:center;margin:8pt 0 2pt}h2{font-size:13pt;margin:10pt 0 3pt}p{margin:3pt 0}
-table{border-collapse:collapse;width:100%;margin:4pt 0}td,th{border:1px solid #000;padding:3pt 5pt;vertical-align:top}th{background:#eee}.c{text-align:center}.r{text-align:right}
-table.nb td{border:none}ul,ol{margin:2pt 0 2pt 18pt}</style></head><body><div class="WordSection1">${body}</div></body></html>`;
+table{border-collapse:collapse;width:100%;margin:4pt 0}td,th{border:1px solid #000;padding:3pt 5pt;vertical-align:top}.c{text-align:center}.r{text-align:right}
+table.nb td{border:none}table.qt td,table.qt th{font-size:11.5pt;padding:2pt 4pt}ul,ol{margin:2pt 0 2pt 18pt}</style></head><body><div class="WordSection1">${body}</div></body></html>`;
 
 function openContract(qid) {
   const q = S.quotes.find(x => x.id === qid);
@@ -503,7 +508,7 @@ function openContract(qid) {
   if (!q.ct || q.ct.form !== q.form) q.ct = { form: q.form };
   const ct = q.ct;
   const defs = {
-    no: `……/${year}/${F.ctCode}`, date: today(), place: cityOf(s.address), aName: p.client || q.customer || '', aYob: '', aId: '', aIdDate: '', aIdPlace: '', aAddr: '', aPhone: p.phone || '',
+    no: `……/${year}/${F.ctCode}`, date: today(), place: cityOf(s.address), aName: p.client || q.customer || '', aId: '', aIdDate: '', aIdPlace: '', aPhone: p.phone || '',
     work: scale ? `Nhà ở riêng lẻ – ${scale}` : (p.name || ''), site: p.address || '', land: '', start: p.start || '', days: '', warranty: 12, deduct: 0,
   };
   for (const k in defs) if (ct[k] === undefined) ct[k] = defs[k];
@@ -514,7 +519,7 @@ function openContract(qid) {
   const design = q.form === 'design';
   const fields = [
     ['Hợp đồng', [['no', 'Số hợp đồng'], ['date', 'Ngày ký', 'date'], ['place', 'Nơi ký', '', 1]]],
-    ['Bên A (chủ đầu tư)', [['aName', 'Họ tên', '', 1], ['aYob', 'Năm sinh'], ['aPhone', 'Điện thoại', 'tel'], ['aId', 'CCCD số'], ['aIdDate', 'Cấp ngày'], ['aIdPlace', 'Nơi cấp', '', 1], ['aAddr', 'Địa chỉ thường trú', '', 1], ['aContact', 'Người liên hệ (nếu khác Bên A)'], ['aContactPhone', 'Điện thoại người liên hệ', 'tel']]],
+    ['Bên A (chủ đầu tư)', [['aName', 'Họ tên', '', 1], ['aPhone', 'Điện thoại', 'tel'], ['aId', 'CCCD số'], ['aIdDate', 'Cấp ngày'], ['aIdPlace', 'Nơi cấp', '', 1], ['aContact', 'Người liên hệ (nếu khác Bên A)'], ['aContactPhone', 'Điện thoại người liên hệ', 'tel']]],
     ['Công trình', [['work', 'Công trình', '', 1], ['site', 'Địa điểm xây dựng', '', 1],
       ...(design ? [['land', 'Diện tích khu đất', '', 1]] : [['start', 'Ngày khởi công', 'date'], ['days', 'Thời gian thi công (ngày)', 'num'], ['warranty', 'Bảo hành (tháng)', 'num'],
         ...(q.form === 'rough' ? [['deduct', 'Khấu trừ phí thiết kế đã trả (₫)', 'money']] : [])])]],

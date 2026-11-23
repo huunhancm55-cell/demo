@@ -181,6 +181,8 @@ label { display: block; font-size: 13px; font-weight: 600; color: var(--muted); 
 .ct th { background: #f0f0f0; }
 .ct .c { text-align: center; } .ct .r { text-align: right; white-space: nowrap; }
 .ct table.nb td { border: 0; }
+.ct table.qt th, .ct table.qt td { padding: 3px 6px; font-size: .9em; line-height: 1.35; }
+.ct table.qt th { font-size: .82em; }
 .ct table.signs { margin-top: 24px; page-break-inside: avoid; }
 .catrow { display: grid; grid-template-columns: 110px 1fr auto; gap: 10px; align-items: center; font-size: 13.5px; padding: 4px 0; }
 
