@@ -24,11 +24,18 @@ const Sync = (() => {
   }
   const configured = () => { const c = cfg(); return !!(c.url && c.key); };
   const persist = () => DB.set('kv', 'sync', st).catch(() => {});
+  // Vai trò: chủ thầu (owner) toàn quyền; đội thợ (crew) chỉ công trình được giao, chỉ mốc tiến độ + nhật ký
+  const crew = () => st.me?.role === 'crew';
+  const crewPids = () => new Set(st.me?.projects || []);
+  const crewOk = r => crewPids().has(r.projectId);
 
   function loadScript(src) {
     return new Promise((res, rej) => {
       const s = document.createElement('script');
-      s.src = src; s.onload = res; s.onerror = () => { s.remove(); rej(new Error('Không tải được thư viện đồng bộ')); };
+      // Quá 8 giây chưa tải xong thì bỏ, để kết nối lại (tránh kẹt "Đang kết nối…")
+      const t = setTimeout(() => { s.remove(); rej(new Error('Tải thư viện đồng bộ quá lâu')); }, 8000);
+      s.src = src + (loadScript.n ? `?r=${loadScript.n}` : ''); loadScript.n = (loadScript.n || 0) + 1;
+      s.onload = () => { clearTimeout(t); res(); }; s.onerror = () => { clearTimeout(t); s.remove(); rej(new Error('Không tải được thư viện đồng bộ')); };
       document.head.appendChild(s);
     });
   }
@@ -36,22 +43,29 @@ const Sync = (() => {
   // ---------- So sánh dữ liệu ----------
   function current() {
     const m = new Map();
+    if (crew()) {
+      for (const k of ['projects', 'tasks', 'logs']) for (const r of S[k]) m.set(r.id, [k, r]);
+      return m;
+    }
     for (const k of KINDS) for (const r of S[k]) m.set(r.id, [k, r]);
     m.set('settings', ['settings', S.settings]);
     return m;
   }
   function dirtyList() {
     const cur = current(), up = [], del = [];
+    const c = crew();
     for (const [id, [k, r]] of cur) {
+      if (c && (k === 'projects' || !crewOk(r))) continue; // đội thợ không sửa công trình, không ghi ngoài công trình được giao
       const j = JSON.stringify(r);
       if (st.synced[id]?.j !== j) up.push({ id, kind: k, data: r, deleted: false, _j: j });
     }
-    for (const id in st.synced) if (!cur.has(id)) del.push({ id, kind: st.synced[id].k, data: null, deleted: true });
+    for (const id in st.synced) if (!cur.has(id) && !(c && st.synced[id].k === 'projects')) del.push({ id, kind: st.synced[id].k, data: null, deleted: true });
     return up.concat(del);
   }
   const blobPaths = rec => [...(rec?.photos || []).map(id => 'p/' + id), ...(rec?.files || []).map(f => 'f/' + f.id)];
   function referencedBlobs() {
     const s = new Set();
+    if (crew()) { for (const l of [...S.logs, ...S.tasks].filter(crewOk)) blobPaths(l).forEach(p => s.add(p)); return s; }
     for (const l of [...S.logs, ...S.projects, ...S.tasks, ...S.changes]) blobPaths(l).forEach(p => s.add(p));
     for (const d of S.docs) blobPaths(d).forEach(p => s.add(p));
     return s;
@@ -119,8 +133,8 @@ const Sync = (() => {
   async function pull(force) {
     const cur = current();
     let changed = false, max = '';
-    for (let off = 0; ; off += PAGE) {
-      let q = sb.from('records').select('id,kind,data,deleted,updated_at');
+    for (const table of crew() ? ['records', 'crew_projects_v'] : ['records']) for (let off = 0; ; off += PAGE) {
+      let q = sb.from(table).select('id,kind,data,deleted,updated_at');
       if (st.cursor) q = q.gt('updated_at', st.cursor);
       const { data, error } = await q.order('updated_at', { ascending: true }).order('id', { ascending: true }).range(off, off + PAGE - 1);
       if (error) throw error;
@@ -128,7 +142,41 @@ const Sync = (() => {
       if (data.length < PAGE) break;
     }
     if (max) { const c = back30(max); if (!st.cursor || c > st.cursor) st.cursor = c; }
+    if (crew() && purge()) changed = true;
     return changed;
+  }
+
+  // Đội thợ: bỏ khỏi máy các công trình không còn được giao và mọi dữ liệu tiền bạc, hồ sơ
+  function purge() {
+    const ok = crewPids(), keepRec = (k, r) => (k === 'projects' ? ok.has(r.id) : ok.has(r.projectId));
+    let n = 0;
+    for (const k of ['projects', 'tasks', 'logs']) {
+      const drop = S[k].filter(r => !keepRec(k, r));
+      if (!drop.length) continue;
+      n += drop.length;
+      for (const r of drop) { delete st.synced[r.id]; (r.photos || []).forEach(p => DB.del('photos', p)); }
+      S[k] = S[k].filter(r => keepRec(k, r));
+    }
+    for (const k of ['quotes', 'costs', 'docs', 'changes']) if (S[k].length) { n += S[k].length; S[k].forEach(r => delete st.synced[r.id]); S[k] = []; }
+    if (S.ui.pid && !ok.has(S.ui.pid)) S.ui.pid = '';
+    return n > 0;
+  }
+  // Vai trò của tài khoản đang đăng nhập (bảng members)
+  async function loadMe() {
+    const { data, error } = await sb.from('members').select('*').ilike('email', user.email || '');
+    if (error) return; // máy chủ chưa nâng cấp: giữ như cũ
+    const row = (data || []).find(r => String(r.email).toLowerCase() === String(user.email).toLowerCase());
+    let me = row ? { role: row.role || 'owner', name: row.name || '', projects: row.projects || [] } : { role: 'none', name: '', projects: [] };
+    // Đội thợ bị thu hồi quyền: vẫn là đội thợ nhưng không còn công trình nào (xóa dữ liệu công trình trên máy)
+    if (!row && crew()) me = { role: 'crew', name: st.me.name, projects: [] };
+    const before = JSON.stringify(st.me || null);
+    if (before === JSON.stringify(me)) return;
+    const wasCrew = crew();
+    st.me = me;
+    if (crew() && !wasCrew) { st.cursor = ''; } // vừa thành đội thợ: kéo lại công trình được giao
+    if (crew()) { purge(); DB.set('kv', 'state', S).catch(() => {}); }
+    if (wasCrew && !crew()) st.cursor = ''; // được nâng lên chủ thầu: tải đủ dữ liệu
+    await persist(); safeRender();
   }
 
   // Xóa trên máy chủ các ảnh/tệp không còn hồ sơ nào dùng
@@ -149,12 +197,14 @@ const Sync = (() => {
     if (running) { again = true; return; }
     running = true; setStatus('busy');
     try {
+      await loadMe();
+      if (st.me?.role === 'none') throw Object.assign(new Error('not member'), { code: '42501' });
       const first = !st.cursor && !Object.keys(st.synced).length;
       let changed = false;
       if (first) changed = await pull(true); // lần đầu trên máy này: lấy dữ liệu chung trước, rồi gộp phần riêng của máy lên
       await push();
       if (await pull(false)) changed = true;
-      if (!dirtyList().length) await cleanBlobs();
+      if (!crew() && !dirtyList().length) await cleanBlobs();
       lastSync = Date.now(); lastError = '';
       setStatus('ok');
       if (changed) { DB.set('kv', 'state', S).catch(() => {}); safeRender(); }
@@ -232,7 +282,8 @@ const Sync = (() => {
     if (S.ui.tab === 'settings') safeRender();
   }
   async function connect() {
-    if (sb || !configured()) return;
+    if (sb || connect.busy || !configured()) return;
+    connect.busy = true;
     try {
       if (!window.supabase?.createClient) await loadScript(LIB);
       const c = cfg();
@@ -240,7 +291,11 @@ const Sync = (() => {
       sb.auth.onAuthStateChange((ev, session) => setTimeout(() => setUser(session?.user || null), 0));
       const { data } = await sb.auth.getSession();
       setUser(data?.session?.user || null);
-    } catch (e) { sb = null; lastError = errMsg(e); }
+    } catch (e) {
+      sb = null; lastError = errMsg(e);
+      // Tự thử lại vài lần
+      if ((connect.retry = (connect.retry || 0) + 1) <= 3) setTimeout(() => { if (!sb) { lastError = ''; connect(); } }, 1500);
+    } finally { connect.busy = false; }
     if (S.ui.tab === 'settings') safeRender();
   }
 
@@ -333,6 +388,10 @@ const Sync = (() => {
   return {
     init, card, fetchPhoto, fetchFile,
     signedIn: () => !!user,
+    role: () => st.me?.role || 'owner',
+    me: () => ({ ...(st.me || { role: 'owner', name: '', projects: [] }), email: user?.email || '' }),
+    client: () => (user ? sb : null),
+    config: () => cfg(),
     // Kho công khai "share": ảnh chụp tiến độ cho chủ nhà xem qua link (chỉ thành viên được ghi)
     async shareUpload(path, body, type) {
       if (!sb || !user) throw new Error('Chưa đăng nhập đồng bộ');

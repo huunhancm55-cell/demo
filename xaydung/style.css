@@ -431,3 +431,8 @@ label.chk input { width: 18px; min-height: 18px; height: 18px; margin: 0; }
 .share-card { border-color: var(--blue); }
 .share-card input { font-size: 13px; padding: 8px 10px; }
 a.btn { text-decoration: none; color: inherit; display: inline-flex; align-items: center; }
+
+/* Tiến độ đợt 5: tài khoản đội thợ */
+.crew-row { border-top: 1px solid var(--line); padding: 12px 0; }
+.crew-pj { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 8px; }
+.crew-pj .chk { font-size: 13.5px; }
