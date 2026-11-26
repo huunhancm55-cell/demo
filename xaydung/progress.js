@@ -470,7 +470,7 @@ function openProgress(pid) {
     $p('#wkNext').onclick = () => { repWeek = addDays(repWeek, 7); draw(); };
     $p('#wkCopy').onclick = () => copy(weekReportText(r, link), 'Đã sao chép — dán vào Zalo để gửi chủ nhà');
     $p('#wkPrint').onclick = async () => { for (const id of r.photos.slice(-9)) await getPhoto(id); printHTML(weekReportHTML(r, true)); };
-    const run = async (btn, fn, ok) => { btn.disabled = true; try { await fn(); toast(ok); } catch (e) { toast(e.message || 'Không kết nối được máy chủ'); } draw(); };
+    const run = async (btn, fn, ok) => { btn.disabled = true; try { await fn(); toast(ok); } catch (e) { toast(/bucket not found/i.test(e.message || '') ? 'Supabase chưa có kho "share": chạy file supabase/share.sql một lần trong SQL Editor rồi thử lại' : e.message || 'Không kết nối được máy chủ'); } draw(); };
     if ($p('#shOn')) $p('#shOn').onclick = e => run(e.target, () => Share.enable(pid), 'Đã tạo link — bấm Sao chép để gửi chủ nhà');
     if ($p('#shNow')) $p('#shNow').onclick = e => run(e.target, () => Share.publish(pid, true), 'Đã cập nhật link');
     if ($p('#shOff')) $p('#shOff').onclick = e => { if (confirm('Tắt link? Chủ nhà sẽ không mở được link này nữa.')) run(e.target, () => Share.disable(pid), 'Đã tắt link'); };
