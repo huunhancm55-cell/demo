@@ -71,7 +71,7 @@ const DB = {
 };
 
 const blank = () => ({
-  projects: [], quotes: [], logs: [], costs: [], docs: [], tasks: [],
+  projects: [], quotes: [], logs: [], costs: [], docs: [], tasks: [], changes: [],
   settings: { company: 'Công ty TNHH MTV Xây dựng Thương mại Hữu Nhân', phone: '0914 580 385', address: '364 Quang Trung, khóm 20, P. Tân Thành, Cà Mau', tax: '2001297621' },
   ui: { tab: 'projects', pid: '', ctype: '', dtype: '' },
 });
@@ -160,7 +160,7 @@ const TABS = [
 const P_STATUS = { prep: ['Chuẩn bị', 'blue'], active: ['Đang thi công', 'orange'], paused: ['Tạm dừng', ''], done: ['Hoàn thành', 'green'] };
 const Q_STATUS = { draft: ['Nháp', ''], sent: ['Đã gửi', 'blue'], approved: ['Đã duyệt', 'green'], rejected: ['Từ chối', 'red'] };
 const CATS = ['Vật tư', 'Nhân công', 'Máy thi công', 'Thầu phụ', 'Vận chuyển', 'Khác'];
-const DOC_TYPES = ['Hợp đồng', 'Phiếu đề nghị cấp vật tư', 'Biên bản nghiệm thu', 'Giấy tạm ứng', 'Giấy ủy quyền', 'Khác'];
+const DOC_TYPES = ['Hợp đồng', 'Phiếu đề nghị cấp vật tư', 'Biên bản nghiệm thu', 'Giấy tạm ứng', 'Giấy ủy quyền', 'Phiếu phát sinh', 'Khác'];
 const WEATHER = ['☀️ Nắng', '⛅ Mát', '🌧️ Mưa', '⛈️ Mưa to'];
 // Mẫu hạng mục: T(tên, ĐVT, hệ số %, khối lượng) — có hệ số thì khối lượng = diện tích × hệ số; G(tên) là dòng nhóm
 const T = (name, unit = 'm²', coef = 0, qty = 0) => ({ name, unit, qty, price: 0, ...(coef ? { area: 0, coef } : {}) });
@@ -528,7 +528,8 @@ function formProject(id) {
       S.logs.filter(l => l.projectId === id).forEach(l => (l.photos || []).forEach(ph => DB.del('photos', ph)));
       S.docs.filter(d => d.projectId === id).forEach(d => (d.files || []).forEach(f => DB.del('files', f.id)));
       S.tasks.filter(t => t.projectId === id).forEach(t => (t.photos || []).forEach(ph => DB.del('photos', ph)));
-      for (const k of ['quotes', 'logs', 'costs', 'docs', 'tasks']) S[k] = S[k].filter(x => x.projectId !== id);
+      S.changes.filter(c => c.projectId === id).forEach(c => (c.photos || []).forEach(ph => DB.del('photos', ph)));
+      for (const k of ['quotes', 'logs', 'costs', 'docs', 'tasks', 'changes']) S[k] = S[k].filter(x => x.projectId !== id);
       S.projects = S.projects.filter(x => x.id !== id);
       if (S.ui.pid === id) S.ui.pid = '';
     }),
@@ -831,21 +832,21 @@ function download(name, blob) {
 }
 async function backup() {
   const photos = {};
-  for (const x of [...S.logs, ...S.projects, ...S.tasks]) for (const id of x.photos || []) photos[id] = await getPhoto(id);
+  for (const x of [...S.logs, ...S.projects, ...S.tasks, ...S.changes]) for (const id of x.photos || []) photos[id] = await getPhoto(id);
   const files = {};
   for (const d of S.docs) for (const f of d.files || []) { const b = await DB.get('files', f.id); if (b) files[f.id] = await blobToDataURL(b); }
   download(`sao-luu-xay-dung-${today()}.json`, new Blob([JSON.stringify({ app: 'qlxd', v: 2, state: S, photos, files })], { type: 'application/json' }));
 }
 // Gói dự án: chỉ THÊM các mục chưa có (theo mã), không xóa hay ghi đè dữ liệu hiện có
 async function importPackage(d) {
-  const kinds = ['projects', 'quotes', 'logs', 'costs', 'docs', 'tasks'];
+  const kinds = ['projects', 'quotes', 'logs', 'costs', 'docs', 'tasks', 'changes'];
   const add = {};
   for (const k of kinds) add[k] = (Array.isArray(d[k]) ? d[k] : []).filter(r => r && typeof r.id === 'string' && !S[k].some(x => x.id === r.id));
   const total = kinds.reduce((t, k) => t + add[k].length, 0);
   if (!total) return toast('Các mục trong file này đã có sẵn, không có gì để thêm');
   const names = add.projects.map(p => p.name).filter(Boolean).join(', ');
   if (!confirm(`Thêm ${total} mục${names ? ` (dự án: ${names})` : ''} vào dữ liệu hiện có? Không xóa hay ghi đè mục nào.`)) return;
-  const ph = new Set([...add.logs, ...add.projects, ...add.tasks].flatMap(l => l.photos || [])), fl = new Set(add.docs.flatMap(x => (x.files || []).map(f => f.id)));
+  const ph = new Set([...add.logs, ...add.projects, ...add.tasks, ...add.changes].flatMap(l => l.photos || [])), fl = new Set(add.docs.flatMap(x => (x.files || []).map(f => f.id)));
   for (const [id, src] of Object.entries(d.photos || {})) if (ph.has(id) && typeof src === 'string' && src.startsWith('data:image/')) await DB.set('photos', id, src);
   for (const [id, src] of Object.entries(d.files || {})) if (fl.has(id) && typeof src === 'string' && src.startsWith('data:')) await DB.set('files', id, await (await fetch(src)).blob());
   for (const k of kinds) S[k].push(...add[k]);
@@ -900,6 +901,16 @@ function sampleData() {
       S.tasks.push({ id: uid(), projectId: p1, order: i, done, doneDate: done ? taskEnd(t) : '', photos: [], note: '', ...t });
     });
     proj(p1).plan = opt;
+    // Nghiệm thu mẫu: các mốc công việc khuất đã xong được nghiệm thu đạt, trừ mốc gần nhất (chờ nghiệm thu)
+    if (typeof checklistFor === 'function') {
+      const chk = tasksOf(p1).filter(t => t.chk && t.done);
+      chk.slice(0, -1).forEach((t, i) => { t.acc = { no: i + 1, date: t.doneDate, a: 'Nguyễn Văn Minh', b: 'Lê Hoàng Sơn', items: checklistFor(t).map(x => ({ t: x, ok: true, note: '' })), note: '', fix: '', due: '', result: 'pass' }; });
+      S.changes.push(
+        { id: uid(), projectId: p1, no: 'PS-01', date: d(25), sign: 'add', title: 'Nâng nền tầng trệt thêm 20 cm', reason: 'Chủ nhà yêu cầu thay đổi', status: 'approved', approvedDate: d(24), days: 2, note: '', photos: [],
+          items: [{ name: 'Đắp cát nền, đầm chặt', unit: 'm³', qty: '18', price: 320000 }, { name: 'Xây tường móng gạch thẻ nâng cốt', unit: 'm³', qty: '3,5', price: 1850000 }] },
+        { id: uid(), projectId: p1, no: 'PS-02', date: d(1), sign: 'add', title: 'Thêm ban công lầu 3 phía sau', reason: 'Thay đổi thiết kế', status: 'sent', days: 3, note: 'Chờ chủ nhà xác nhận qua Zalo', photos: [],
+          items: [{ name: 'Bê tông, cốt thép sàn ban công', unit: 'm²', qty: '6,5', price: 2400000 }, { name: 'Lan can sắt sơn tĩnh điện', unit: 'md', qty: '4,2', price: 1150000 }] });
+    }
   }
   save(); render(); toast('Đã thêm dữ liệu mẫu');
 }

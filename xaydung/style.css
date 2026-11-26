@@ -376,3 +376,33 @@ label.chk input { width: 18px; min-height: 18px; height: 18px; margin: 0; }
   #print .hn .foot .ad span { font-weight: 500; }
   @page { margin: 14mm; }
 }
+
+/* Tiến độ đợt 3: thẻ Tiến độ / Nghiệm thu / Phát sinh, bảng kiểm nghiệm thu, phiếu phát sinh */
+.pg-tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--line); margin: -4px 0 14px; overflow-x: auto; }
+.pg-tabs button { border: 0; background: none; padding: 9px 12px 8px; font-weight: 600; font-size: 14px; color: var(--muted); border-bottom: 2.5px solid transparent; white-space: nowrap; display: flex; align-items: center; gap: 6px; }
+.pg-tabs button.on { color: var(--text); border-bottom-color: var(--accent); }
+.pg-tabs .badge { padding: 0 7px; }
+.v.warn { color: var(--warm); }
+.pg-t.tap { cursor: pointer; border: 1px solid var(--line); border-radius: 10px; margin-bottom: 8px; background: var(--card); }
+.pg-t.acc-wait, .pg-t.acc-fail { border-left: 4px solid var(--warm); }
+.pg-t.acc-fail { border-left-color: var(--red); }
+.pg-t.acc-pass .pg-nm { color: var(--muted); }
+.pg-t .r { text-align: right; flex: none; }
+.ac-row { display: flex; gap: 10px; align-items: flex-start; padding: 10px 0; border-top: 1px solid var(--line); }
+.ac-note { margin-top: 6px; padding: 6px 9px; font-size: 13.5px; min-height: 34px; }
+.seg { display: flex; flex: none; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.seg button { border: 0; background: var(--card); padding: 8px 10px; font-weight: 600; font-size: 13.5px; color: var(--muted); min-height: 40px; }
+.seg button + button { border-left: 1px solid var(--line); }
+.seg button.on.ok { background: var(--green-soft); color: var(--green); }
+.seg button.on.no { background: var(--red-soft); color: var(--red); }
+.ch-it { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, .8fr) minmax(0, .9fr) minmax(0, 1.4fr) minmax(0, 1.3fr) 30px; gap: 6px; align-items: center; margin-bottom: 6px; }
+.ch-it input { padding: 8px 9px; min-width: 0; }
+.ch-it [data-line] { font-size: 13.5px; }
+@media (max-width: 640px) {
+  .ch-it { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.6fr) 30px; padding-bottom: 6px; border-bottom: 1px dashed var(--line); }
+  .ch-it [data-k=name] { grid-column: 1 / -1; }
+  .ch-it [data-line] { display: none; }
+}
+.ct .pimgs img, #print .ct .pimgs img { width: 31%; height: 150px; object-fit: cover; margin: 4px 1% 0 0; }
+.ac-row > .grow { flex: 1; }
+.fields[hidden] { display: none; }
