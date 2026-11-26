@@ -109,7 +109,7 @@ function progressSummaryHTML(p) {
     <div class="row between small"><span class="muted">Tiến độ</span><span><b>${st.pct}%</b> · ${st.done}/${list.length} mốc${st.finish ? ` · dự kiến xong ${fdate(st.finish)}` : ''}</span></div>
     <div class="bar mt"><i class="ok" style="width:${st.pct}%"></i></div>
     <div class="row between wrap small mt" style="gap:6px"><span class="clip grow">${st.next ? `Tiếp theo: <b>${esc(st.next.name)}</b> · ${ddmm(st.next.start)}–${ddmm(taskEnd(st.next))}` : '<b class="pos">Đã xong tất cả các mốc</b>'}</span>${st.late ? `<span class="badge red">Trễ ${st.lateDays} ngày · ${st.late} mốc</span>` : ''}</div>
-    ${(() => { const due = [...dueStages(p.id).map(s => `đợt ${s.i + 1} · ${short(s.amount)}`), ...changeSummary(p.id).unpaid.map(c => `${c.no} · ${short(changeTotal(c))}`)]; return due.length ? `<div class="small mt warn">💰 Đến hạn thu: ${due.join(', ')}</div>` : ''; })()}
+    ${isCrew() ? '' : (() => { const due = [...dueStages(p.id).map(s => `đợt ${s.i + 1} · ${short(s.amount)}`), ...changeSummary(p.id).unpaid.map(c => `${c.no} · ${short(changeTotal(c))}`)]; return due.length ? `<div class="small mt warn">💰 Đến hạn thu: ${due.join(', ')}</div>` : ''; })()}
     ${(() => { const w = accWaiting(p.id); return w.length ? `<div class="small mt warn">📋 Chờ nghiệm thu: ${w.length} mốc (${esc(w[0].name)}${w.length > 1 ? '…' : ''})</div>` : ''; })()}</div>`;
 }
 function progressLinkLabel(p) { const l = tasksOf(p.id); return l.length ? `Tiến độ (${planStats(l).pct}%)` : 'Lập tiến độ'; }
@@ -243,7 +243,9 @@ function openProgress(pid) {
   el.classList.add('xwide');
   const $p = s => $(s, el);
   let filter = 'all', openGroups = null, payOpen = false, tab = 'plan', repWeek = weekStartOf(today());
+  const crew = isCrew();
   const tabsHTML = () => {
+    if (crew) return '';
     const w = accWaiting(pid).length, n = changesOf(pid).length;
     return `<div class="pg-tabs" role="tablist">${[['plan', '📅 Tiến độ'], ['acc', `📋 Nghiệm thu${w ? ` <span class="badge orange">${w}</span>` : ''}`], ['chg', `➕ Phát sinh${n ? ` <span class="badge">${n}</span>` : ''}`], ['rep', '📰 Báo cáo tuần']]
       .map(([k, v]) => `<button class="${tab === k ? 'on' : ''}" type="button" role="tab" aria-selected="${tab === k}" data-tab="${k}">${v}</button>`).join('')}</div>`;
@@ -255,6 +257,7 @@ function openProgress(pid) {
 
   // ---- Lập kế hoạch ----
   const drawSetup = () => {
+    if (crew) { $p('#pgBody').innerHTML = '<p class="muted">Chủ thầu chưa lập kế hoạch tiến độ cho công trình này.</p>'; $p('#pgFoot').innerHTML = ''; return; }
     const o = p.plan || { floors: 1, roof: 'btct', tum: false, pile: true };
     $p('#pgBody').innerHTML = tabsHTML() + `<p class="small muted mb">App tạo sẵn các mốc theo quy trình công ty, chia theo từng tầng; ngày dự kiến tự tính từ ngày khởi công. Sau khi tạo vẫn sửa, thêm, xóa và đổi ngày từng mốc được.</p>
       <div class="fields">
@@ -294,7 +297,7 @@ function openProgress(pid) {
         <div class="stat"><div class="k">Dự kiến xong</div><div class="v">${fdate(st.finish)}</div></div>
         <div class="stat"><div class="k">Trễ</div><div class="v ${st.late ? 'neg' : 'pos'}">${st.late ? `${st.late} mốc · ${st.lateDays} ngày` : 'Đúng tiến độ'}</div></div>
       </div>
-      ${payCardHTML(pid, payOpen)}
+      ${crew ? '' : payCardHTML(pid, payOpen)}
       <div class="row between wrap" style="gap:8px;margin-bottom:12px">
         <div class="chips" style="margin:0">${[['all', 'Tất cả'], ['todo', 'Chưa xong'], ['late', `Trễ (${st.late})`]].map(([k, v]) => `<button class="chip ${filter === k ? 'on' : ''}" type="button" data-pf="${k}">${v}</button>`).join('')}</div>
         <div class="chips" style="margin:0">${[['list', '☰ Danh sách'], ['chart', '▤ Biểu đồ']].map(([k, v]) => `<button class="chip ${S.ui.pgView === k ? 'on' : ''}" type="button" data-view="${k}">${v}</button>`).join('')}</div>
@@ -312,11 +315,12 @@ function openProgress(pid) {
           ${open ? items.map(t => `<div class="pg-t ${taskState(t, td)}">
               <button class="pg-ck" type="button" data-done="${t.id}" aria-label="${t.done ? 'Bỏ đánh dấu xong' : 'Đánh dấu xong'}">${t.done ? '✓' : ''}</button>
               <div class="grow tap" data-edit="${t.id}" style="min-width:0"><div class="pg-nm">${esc(t.name)} ${ACC_BADGE(t)}</div>
-                <div class="small muted">${ddmm(t.start)}–${ddmm(taskEnd(t))} · ${taskDays(t)} ngày${(t.photos || []).length ? ` · 📷 ${t.photos.length}` : ''}${t.note ? ' · 📝' : ''}</div></div>
+                <div class="small muted">${ddmm(t.start)}–${ddmm(taskEnd(t))} · ${taskDays(t)} ngày${(t.photos || []).length ? ` · 📷 ${t.photos.length}` : ''}${t.note ? ' · 📝' : ''}${t.done && t.doneBy ? ` · 👷 ${esc(t.doneBy)}` : ''}</div></div>
               ${STATE_BADGE(t, td)}</div>`).join('') + (undone > 1 ? `<div class="pg-gf"><button class="linkbtn" type="button" data-gdone="${esc(g.name)}">✓ Xong cả nhóm (${undone} mốc)</button></div>` : '') : ''}
         </div>`;
       }).join('') || '<p class="muted small">Không có mốc nào.</p>'}`;
     if (S.ui.pgView === 'chart') $p('#pgChart').innerHTML = chartHTML(pid, list, show, $p('#pgBody').clientWidth - 28);
+    if (crew) { $p('#pgFoot').innerHTML = '<p class="small muted">Bấm ô tròn để đánh dấu xong (kèm ảnh) · bấm tên mốc để thêm ảnh, ghi chú</p>'; return; }
     $p('#pgFoot').innerHTML = `<button class="btn" type="button" id="pgAdd">+ Thêm mốc</button><button class="btn" type="button" id="pgShift">Dời kế hoạch</button><button class="btn danger" type="button" id="pgReset">Xóa kế hoạch</button>`;
     $p('#pgAdd').onclick = () => drawEdit(null);
     $p('#pgShift').onclick = () => {
@@ -343,13 +347,14 @@ function openProgress(pid) {
     const last = list[list.length - 1];
     const dueBefore = new Set(dueStages(pid).map(s => s.i));
     last.photos = [...(last.photos || []), ...photos];
-    list.forEach(t => { t.done = true; t.doneDate = td; });
+    const by = window.Sync && Sync.signedIn() ? (Sync.me().name || Sync.me().email.split('@')[0]) : '';
+    list.forEach(t => { t.done = true; t.doneDate = td; if (by) t.doneBy = by; else delete t.doneBy; });
     commit(); draw();
     // Xong mốc gắn đợt thanh toán → nhắc thu tiền
     const newDue = dueStages(pid).filter(s => !dueBefore.has(s.i));
     toast(newDue.length ? `💰 Đến hạn thu đợt ${newDue.map(s => `${s.i + 1}: ${money(s.amount)}`).join(', ')} — bấm "Đã thu" khi nhận tiền` : list.length > 1 ? `Đã xong ${list.length} mốc` : 'Đã đánh dấu xong');
     // Mốc cần nghiệm thu công việc khuất: mở ngay phiếu nghiệm thu
-    if (list.length === 1 && accState(last) === 'wait') drawAcc(last.id, true);
+    if (list.length === 1 && accState(last) === 'wait') { if (crew) toast('Đã xong — mốc này cần chủ thầu nghiệm thu'); else drawAcc(last.id, true); }
   };
 
   // ---- Nghiệm thu ----
@@ -621,8 +626,9 @@ function openProgress(pid) {
         <div><label for="pgDD">Ngày xong</label><input type="date" id="pgDD" value="${esc(t.doneDate || '')}"></div>
         <div class="full"><label for="pgNote">Ghi chú</label><textarea id="pgNote" rows="2">${esc(t.note || '')}</textarea></div>
         <div class="full"><label>Ảnh hiện trường (bắt buộc khi đã xong)</label><div class="thumbs" id="pgPh"></div><div class="mt"><button type="button" class="btn sm" id="pgAddPh">📷 Thêm ảnh</button></div></div>
-        ${orig ? `<div class="full card row between wrap" style="gap:8px"><span class="small">📋 Nghiệm thu: ${ACC_BADGE(orig) || '<span class="muted">không bắt buộc</span>'}${orig.acc ? ` · ${accCode(orig.acc.no)}` : ''}</span><button type="button" class="btn sm" data-acc="${orig.id}">${orig.acc ? 'Xem / in biên bản' : 'Nghiệm thu mốc này'}</button></div>` : ''}
+        ${orig && !crew ? `<div class="full card row between wrap" style="gap:8px"><span class="small">📋 Nghiệm thu: ${ACC_BADGE(orig) || '<span class="muted">không bắt buộc</span>'}${orig.acc ? ` · ${accCode(orig.acc.no)}` : ''}</span><button type="button" class="btn sm" data-acc="${orig.id}">${orig.acc ? 'Xem / in biên bản' : 'Nghiệm thu mốc này'}</button></div>` : ''}
       </div>`;
+    if (crew) { ['#pgN', '#pgG', '#pgS', '#pgD'].forEach(sel => { $p(sel).readOnly = true; }); }
     const drawPh = () => {
       $p('#pgPh').innerHTML = t.photos.map(ph => `<div class="ph"><img data-ph="${ph}" data-act="viewPhoto" alt="Ảnh mốc"><button type="button" data-rmph="${ph}" aria-label="Bỏ ảnh">×</button></div>`).join('');
       hydratePhotos($p('#pgPh'));
@@ -633,9 +639,9 @@ function openProgress(pid) {
     $p('#pgDone').onchange = e => { if (e.target.checked && !$p('#pgDD').value) $p('#pgDD').value = today(); };
     const back = () => { added.filter(ph => !t.photos.includes(ph) || !saved).forEach(ph => DB.del('photos', ph)); draw(); };
     let saved = false;
-    $p('#pgFoot').innerHTML = `<button class="btn" type="button" id="pgBack">← Tiến độ</button>${orig ? '<button class="btn danger" type="button" id="pgDel">Xóa</button>' : ''}<button class="btn primary" type="button" id="pgSave">Lưu mốc</button>`;
+    $p('#pgFoot').innerHTML = `<button class="btn" type="button" id="pgBack">← Tiến độ</button>${orig && !crew ? '<button class="btn danger" type="button" id="pgDel">Xóa</button>' : ''}<button class="btn primary" type="button" id="pgSave">Lưu mốc</button>`;
     $p('#pgBack').onclick = back;
-    if (orig) $p('#pgDel').onclick = () => {
+    if (orig && !crew) $p('#pgDel').onclick = () => {
       if (!confirm('Xóa mốc này?')) return;
       (orig.photos || []).forEach(ph => DB.del('photos', ph));
       S.tasks = S.tasks.filter(x => x.id !== orig.id); renumber(); commit(); toast('Đã xóa mốc'); draw();
@@ -665,6 +671,7 @@ function openProgress(pid) {
   };
 
   const draw = () => {
+    if (crew) tab = 'plan';
     const b = $p('#pgBody'); b.onchange = b.oninput = b.onclick = null;
     if (tab === 'acc') return drawAccList();
     if (tab === 'chg') return drawChanges();

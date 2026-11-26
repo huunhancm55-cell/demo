@@ -259,27 +259,46 @@ function pMoney(pid) {
 const badge = ([t, c]) => `<span class="badge ${c}">${t}</span>`;
 
 // ---------- Khung giao diện ----------
+// Đội thợ: chỉ thấy Dự án (tiến độ), Nhật ký và Cài đặt; không thấy tiền
+const CREW_TABS = ['projects', 'logs', 'settings'];
+const isCrew = () => !!(window.Sync && Sync.role && Sync.role() === 'crew');
 function toast(msg) {
   const t = $('#toast'); t.textContent = msg; t.classList.add('show');
   clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.remove('show'), 2400);
 }
 function render() {
+  const crew = isCrew(), tabs = crew ? TABS.filter(t => CREW_TABS.includes(t[0])) : TABS;
+  if (!tabs.some(t => t[0] === S.ui.tab)) S.ui.tab = 'projects';
   const tab = S.ui.tab;
-  $('#nav').innerHTML = `<div class="brand"><img src="icon.svg" alt=""><span><b>HỮU NHÂN</b><small>Quản lý công trình</small></span></div>` + TABS.map(([k, t, ic]) =>
+  $('#nav').innerHTML = `<div class="brand"><img src="icon.svg" alt=""><span><b>HỮU NHÂN</b><small>${crew ? 'Tài khoản đội thợ' : 'Quản lý công trình'}</small></span></div>` + tabs.map(([k, t, ic]) =>
     `<button data-act="tab" data-id="${k}" class="${k === tab ? 'on' : ''}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${ic}</svg>${t}</button>`).join('');
   $('#title').textContent = TABS.find(t => t[0] === tab)[1];
   const pf = $('#pfilter');
   pf.hidden = tab === 'projects' || tab === 'settings' || !S.projects.length;
   pf.innerHTML = `<option value="">Tất cả dự án</option>` + S.projects.map(p => `<option value="${p.id}" ${p.id === S.ui.pid ? 'selected' : ''}>${esc(p.name)}</option>`).join('');
-  $('#fab').hidden = tab === 'settings';
+  $('#fab').hidden = tab === 'settings' || (crew && tab === 'projects');
   const main = $('#main');
   main.innerHTML = VIEWS[tab]();
   hydratePhotos(main);
 }
 const empty = (icon, title, text, btns = '') => `<div class="empty"><div class="big">${icon}</div><h3>${title}</h3><p>${text}</p><div class="btns">${btns}</div></div>`;
 
+// Trang Dự án của đội thợ: chỉ công trình được giao, tiến độ, không tiền
+function crewProjects() {
+  if (!S.projects.length) return empty('👷', 'Chưa được giao công trình', window.Sync?.signedIn() ? 'Chủ thầu chưa giao công trình nào cho tài khoản này. Khi được giao, công trình sẽ tự hiện ở đây.' : 'Đăng nhập trong Cài đặt để nhận công trình được giao.',
+    window.Sync?.signedIn() ? '' : '<button class="btn primary" data-act="tab" data-id="settings">Đăng nhập</button>');
+  return `<div class="list cols">${S.projects.map(p => {
+    const cover = (p.photos || [])[0], nl = S.logs.filter(l => l.projectId === p.id).length;
+    return `<div class="card pcard">${cover ? `<img class="cover" data-ph="${cover}" data-act="viewPhoto" alt="Phối cảnh ${esc(p.name)}">` : ''}
+      <div class="row between tap" data-act="openProgress" data-id="${p.id}"><div class="grow"><div class="bold clip">${esc(p.name)}</div><div class="small muted clip">${esc(p.address || '')}</div></div>${badge(P_STATUS[p.status] || P_STATUS.prep)}</div>
+      ${window.progressSummaryHTML ? progressSummaryHTML(p) : ''}
+      <div class="row wrap mt" style="column-gap:16px"><button class="linkbtn" data-act="openProgress" data-id="${p.id}">${tasksOf(p.id).length ? 'Cập nhật tiến độ' : 'Chưa có kế hoạch tiến độ'}</button><button class="linkbtn" data-act="go" data-id="${p.id}" data-tab="logs">Nhật ký (${nl})</button></div></div>`;
+  }).join('')}</div>`;
+}
+
 const VIEWS = {
   projects() {
+    if (isCrew()) return crewProjects();
     if (!S.projects.length) return empty('🏗️', 'Chào mừng bạn!', 'Tạo dự án đầu tiên để bắt đầu lập báo giá, ghi nhật ký và theo dõi chi phí.',
       `<button class="btn primary" data-act="add">+ Tạo dự án</button><button class="btn" data-act="sample">Xem thử dữ liệu mẫu</button>`);
     const active = S.projects.filter(p => p.status === 'active').length;
@@ -385,8 +404,16 @@ const VIEWS = {
 
   settings() {
     const s = S.settings;
+    if (isCrew()) {
+      const me = Sync.me();
+      return `<div class="list">${Sync.card()}
+        <div class="card"><div class="bold mb">👷 Tài khoản đội thợ</div><p class="small">${esc(me.name || me.email)}${me.name ? ` <span class="muted">· ${esc(me.email)}</span>` : ''}</p>
+          <p class="small muted mt">Được giao ${S.projects.length} công trình. Đội thợ đánh dấu xong mốc (kèm ảnh) và ghi nhật ký; các mục báo giá, chi phí, hồ sơ do chủ thầu quản lý.</p></div>
+        <div class="card"><div class="bold mb">Cài đặt ứng dụng</div><p class="small"><b>iPhone:</b> mở bằng Safari → Chia sẻ → "Thêm vào Màn hình chính".<br><b>Android:</b> Chrome → menu ⋮ → "Cài đặt ứng dụng".</p></div></div>`;
+    }
     return `<div class="list">
     ${window.Sync ? Sync.card() : ''}
+    ${window.crewCardHTML && window.Sync?.signedIn() ? crewCardHTML() : ''}
     <div class="card"><div class="bold mb">Thông tin công ty <span class="small muted" style="font-weight:400">(in trên báo giá, hợp đồng)</span></div>
       <div class="fields">
         <div class="full"><label>Tên công ty / nhà thầu</label><input data-set="company" value="${esc(s.company)}" placeholder="Công ty TNHH Xây dựng ABC"></div>
@@ -538,10 +565,11 @@ function formProject(id) {
 }
 
 function formLog(id) {
+  if (isCrew() && !S.projects.length) return toast('Chưa được giao công trình nào');
   if (!needProject()) return;
   const l = S.logs.find(x => x.id === id);
   openForm({
-    title: l ? 'Sửa nhật ký' : 'Nhật ký thi công', data: l || { projectId: S.ui.pid || S.projects[0].id, date: today(), weather: WEATHER[0], photos: [] },
+    title: l ? 'Sửa nhật ký' : 'Nhật ký thi công', data: l || { projectId: S.ui.pid || S.projects[0].id, date: today(), weather: WEATHER[0], photos: [], supervisor: isCrew() ? Sync.me().name : '' },
     fields: [
       { k: 'projectId', label: 'Dự án', type: 'select', options: projOptions() },
       { k: 'date', label: 'Ngày', type: 'date', half: true, required: true }, { k: 'weather', label: 'Thời tiết', type: 'select', half: true, options: WEATHER.map(w => [w, w]) },
@@ -918,13 +946,14 @@ function sampleData() {
 
 // ---------- Sự kiện ----------
 const ACT = {
-  tab: d => { S.ui.tab = d.id; save(); render(); window.scrollTo(0, 0); },
-  go: d => { S.ui.pid = d.id; S.ui.tab = d.tab; save(); render(); window.scrollTo(0, 0); },
+  tab: d => { if (isCrew() && !CREW_TABS.includes(d.id)) return; S.ui.tab = d.id; save(); render(); window.scrollTo(0, 0); },
+  go: d => { if (isCrew() && !CREW_TABS.includes(d.tab)) return; S.ui.pid = d.id; S.ui.tab = d.tab; save(); render(); window.scrollTo(0, 0); },
   add: () => ({ projects: formProject, quotes: formQuote, logs: formLog, costs: formCost, docs: formDoc }[S.ui.tab] || formProject)(),
-  editProject: d => formProject(d.id),
+  editProject: d => (isCrew() ? openProgress(d.id) : formProject(d.id)),
   openProgress: d => openProgress(d.id),
   // Thêm ảnh phối cảnh ngay trên thẻ dự án
   addCover: d => {
+    if (isCrew()) return;
     const inp = document.createElement('input');
     inp.type = 'file'; inp.accept = 'image/*';
     inp.onchange = async () => {
@@ -978,6 +1007,8 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') { if (!$('#v
 window.addEventListener('afterprint', () => { $('#print').innerHTML = ''; });
 
 (async function init() {
+  // Chờ nạp xong mọi tệp mã (sync.js, progress.js…) rồi mới khởi động; nếu không, đôi khi đồng bộ không được bật
+  if (document.readyState === 'loading') await new Promise(r => document.addEventListener('DOMContentLoaded', r, { once: true }));
   await DB.open();
   try {
     const st = await DB.get('kv', 'state');
