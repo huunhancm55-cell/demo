@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Biệt thự – Phối cảnh D5</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@300;500;700&display=swap" rel="stylesheet">
+<style>
+  :root { --bg:#0e0e0e; --fg:#f4f1ea; --muted:#a9a399; --accent:#c8a96a; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { background:var(--bg); color:var(--fg); font-family:'Be Vietnam Pro',sans-serif; }
+  header { position:fixed; inset:0 0 auto 0; z-index:10; display:flex; justify-content:space-between;
+           padding:20px 16px; mix-blend-mode:difference; }
+  header b { letter-spacing:.2em; }
+  header nav a { color:#fff; text-decoration:none; margin-left:20px; font-size:14px; }
+
+  /* Khối cuộn: chiều cao càng lớn, ảnh chạy càng chậm */
+  .scrolly { position:relative; height:500vh; }
+  .sticky  { position:sticky; top:0; height:100vh; overflow:hidden; }
+  canvas   { width:100%; height:100%; display:block; object-fit:cover; }
+  .sticky::after { content:""; position:absolute; inset:auto 0 0 0; height:55%; background:linear-gradient(transparent,rgba(0,0,0,.65)); pointer-events:none; }
+  .caption { position:absolute; z-index:2; left:16px; right:16px; bottom:12vh; max-width:560px;
+             opacity:0; transform:translateY(30px); transition:.6s; }
+  .caption.show { opacity:1; transform:none; }
+  .caption small { color:var(--accent); letter-spacing:.3em; text-transform:uppercase; }
+  .caption h2 { font-size:clamp(28px,6vw,64px); font-weight:300; line-height:1.1; margin:8px 0; }
+  .caption p { color:var(--muted); }
+  .progress { position:absolute; left:0; bottom:0; height:2px; background:var(--accent); width:0; }
+  .loader { position:absolute; inset:0; display:grid; place-items:center; background:var(--bg); z-index:5; }
+
+  section.info { padding:120px 16px; max-width:1100px; margin:auto; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:16px; margin-top:40px; }
+  .grid img { width:100%; aspect-ratio:4/3; object-fit:cover; border-radius:4px; background:#222; }
+  .stats { display:flex; flex-wrap:wrap; gap:40px; margin-top:40px; }
+  .stats div b { display:block; font-size:40px; color:var(--accent); font-weight:300; }
+  footer { padding:60px 16px; text-align:center; color:var(--muted); }
+</style>
+</head>
+<body>
+<header><b>STUDIO</b><nav><a href="#info">Dự án</a><a href="#gallery">Hình ảnh</a><a href="#contact">Liên hệ</a></nav></header>
+
+<div class="scrolly" id="scrolly">
+  <div class="sticky">
+    <div class="loader" id="loader">Đang tải 0%</div>
+    <canvas id="seq"></canvas>
+    <!-- data-from / data-to: đoạn cuộn (0–1) mà chữ hiện ra -->
+    <div class="caption" data-from="0.00" data-to="0.25"><small>01 · Ngoại thất</small><h2>Biệt thự ven hồ</h2><p>Kiến trúc hiện đại, mở ra thiên nhiên.</p></div>
+    <div class="caption" data-from="0.30" data-to="0.55"><small>02 · Lối vào</small><h2>Sảnh đón đôi tầng</h2><p>Ánh sáng tự nhiên xuyên suốt.</p></div>
+    <div class="caption" data-from="0.60" data-to="0.85"><small>03 · Nội thất</small><h2>Phòng khách mở</h2><p>Vật liệu gỗ, đá tự nhiên.</p></div>
+    <div class="progress" id="bar"></div>
+  </div>
+</div>
+
+<section class="info" id="info">
+  <h2 style="font-weight:300;font-size:40px">Thông tin dự án</h2>
+  <div class="stats"><div><b>350m²</b>Diện tích sàn</div><div><b>3</b>Tầng</div><div><b>2026</b>Năm thiết kế</div></div>
+</section>
+<section class="info" id="gallery">
+  <h2 style="font-weight:300;font-size:40px">Hình ảnh render</h2>
+  <div class="grid">
+    <img src="images/r1.jpg" alt="Render 1" loading="lazy">
+    <img src="images/r2.jpg" alt="Render 2" loading="lazy">
+    <img src="images/r3.jpg" alt="Render 3" loading="lazy">
+  </div>
+</section>
+<footer id="contact">© Studio · Liên hệ: 09xx xxx xxx</footer>
+
+<script>
+/* ====== CẤU HÌNH ====== */
+const FRAME_COUNT = 120;                       // số ảnh trong thư mục frames/
+const frameUrl = i => `frames/${String(i + 1).padStart(4, '0')}.jpg`;  // 0001.jpg ...
+
+const canvas = document.getElementById('seq');
+const ctx = canvas.getContext('2d');
+const scrolly = document.getElementById('scrolly');
+const bar = document.getElementById('bar');
+const loader = document.getElementById('loader');
+const captions = [...document.querySelectorAll('.caption')];
+const frames = new Array(FRAME_COUNT);
+let loaded = 0, current = -1;
+
+function resize() {
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  canvas.width = innerWidth * dpr; canvas.height = innerHeight * dpr;
+  current = -1; render();
+}
+
+// Vẽ ảnh kiểu "cover" (giữ tỉ lệ, phủ kín màn hình)
+function draw(img) {
+  const cw = canvas.width, ch = canvas.height;
+  const s = Math.max(cw / img.naturalWidth, ch / img.naturalHeight);
+  const w = img.naturalWidth * s, h = img.naturalHeight * s;
+  ctx.drawImage(img, (cw - w) / 2, (ch - h) / 2, w, h);
+}
+
+function progress() {
+  const r = scrolly.getBoundingClientRect();
+  return Math.min(Math.max(-r.top / (r.height - innerHeight), 0), 1);
+}
+
+function render() {
+  const p = progress();
+  bar.style.width = (p * 100) + '%';
+  captions.forEach(c => c.classList.toggle('show', p >= +c.dataset.from && p <= +c.dataset.to));
+  let idx = Math.round(p * (FRAME_COUNT - 1));
+  // nếu frame chưa tải xong thì lùi về frame gần nhất đã có
+  while (idx > 0 && !(frames[idx] && frames[idx].complete)) idx--;
+  if (idx !== current && frames[idx] && frames[idx].complete) { draw(frames[idx]); current = idx; }
+}
+
+// Tải trước toàn bộ ảnh
+for (let i = 0; i < FRAME_COUNT; i++) {
+  const img = new Image();
+  img.onload = img.onerror = () => {
+    loaded++;
+    loader.textContent = `Đang tải ${Math.round(loaded / FRAME_COUNT * 100)}%`;
+    if (i === 0) render();
+    if (loaded === FRAME_COUNT) loader.remove();
+  };
+  img.src = frameUrl(i);
+  frames[i] = img;
+}
+
+let ticking = false;
+addEventListener('scroll', () => {
+  if (!ticking) { requestAnimationFrame(() => { render(); ticking = false; }); ticking = true; }
+}, { passive: true });
+addEventListener('resize', resize);
+resize();
+</script>
+</body>
+</html>
