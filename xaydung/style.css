@@ -184,6 +184,49 @@ label { display: block; font-size: 13px; font-weight: 600; color: var(--muted); 
 .ct table.qt th, .ct table.qt td { padding: 3px 6px; font-size: .9em; line-height: 1.35; }
 .ct table.qt th { font-size: .82em; }
 .ct table.signs { margin-top: 24px; page-break-inside: avoid; }
+/* Màu trạng thái tiến độ (đã kiểm phân biệt được với người mù màu, sáng và tối) */
+:root { --st-done: #2f855a; --st-doing: #c98a12; --st-late: #c0392b; }
+@media (prefers-color-scheme: dark) { :root { --st-done: #2f9a68; --st-doing: #c98a16; --st-late: #e8546a; } }
+.warn { color: var(--warm); font-weight: 600; }
+.due-card { border-color: var(--st-doing); }
+.pay-card .pay-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-top: 1px solid var(--line); }
+.pay-card .pay-row:first-of-type { margin-top: 8px; }
+.pay-card .pay-row.paid { opacity: .7; }
+.pay-card .pay-row.due { background: var(--warm-soft); margin: 0 -14px; padding: 8px 14px; }
+.pay-card details summary { cursor: pointer; color: var(--blue); font-weight: 600; padding: 4px 0; }
+.kvrow.plink { grid-template-columns: minmax(0, 1fr) minmax(0, 1.6fr); }
+.kvrow.plink select { min-height: 38px; padding: 6px 8px; font-size: 14px; }
+.sheet.xwide { max-width: min(1240px, 96vw); }
+/* Biểu đồ thời gian */
+.gt-legend { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 0 0 8px; color: var(--muted); }
+.gt-legend .sw { display: inline-block; width: 18px; height: 6px; border-radius: 3px; margin-right: 5px; vertical-align: middle; }
+.gt-legend .sw.plan { height: 12px; background: var(--gray-soft); border: 1px solid var(--line); border-radius: 4px; }
+.sw.done, .gt-act.done { background: var(--st-done); }
+.sw.doing, .gt-act.doing { background: var(--st-doing); }
+.sw.late, .gt-act.late { background: var(--st-late); }
+.gt-legend .sw.today { width: 0; height: 12px; border-left: 2px dashed var(--accent); border-radius: 0; }
+.gantt { overflow-x: auto; border: 1px solid var(--line); border-radius: 12px; background: var(--card); -webkit-overflow-scrolling: touch; }
+.gt-in { position: relative; width: max-content; min-width: 100%; }
+.gt-row { display: flex; height: 30px; border-top: 1px solid var(--line); cursor: pointer; }
+.gt-row:hover .gt-name { color: var(--accent); }
+.gt-row.gt-head { height: 26px; border-top: 0; cursor: default; }
+.gt-row.g { background: var(--gray-soft); cursor: default; }
+.gt-name { position: sticky; left: 0; z-index: 2; flex: none; background: var(--card); padding: 0 10px; display: flex; align-items: center; font-size: 12.5px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; border-right: 1px solid var(--line); }
+.gt-name { display: block; line-height: 30px; }
+.gt-row.g .gt-name { background: var(--gray-soft); font-weight: 700; }
+.gt-row.gt-head .gt-name { line-height: 26px; }
+.gt-track { position: relative; flex: none; overflow: hidden; background-image: repeating-linear-gradient(90deg, var(--line) 0 1px, transparent 1px var(--wk)); background-position: var(--off) 0; }
+.gt-head .gt-track span { position: absolute; top: 5px; padding-left: 3px; font-size: 11px; color: var(--muted); white-space: nowrap; }
+.gt-plan { position: absolute; top: 8px; height: 14px; border-radius: 4px; background: var(--gray-soft); border: 1px solid var(--line); box-sizing: border-box; }
+.gt-row.g .gt-plan { top: 12px; height: 6px; border: 0; background: var(--muted); opacity: .45; }
+.gt-act { position: absolute; top: 12px; height: 6px; border-radius: 3px; box-shadow: 0 0 0 2px var(--card); }
+.gt-g { position: absolute; top: 6px; font-size: 12px; line-height: 18px; }
+.gt-g.done { color: var(--st-done); } .gt-g.late { color: var(--st-late); }
+.gt-pay { position: absolute; top: 6px; font-size: 12px; line-height: 18px; }
+.gt-today { position: absolute; top: 0; bottom: 0; width: 0; border-left: 2px dashed var(--accent); z-index: 1; pointer-events: none; }
+.gt-today span { position: absolute; top: 4px; left: 4px; font-size: 10.5px; color: var(--accent); font-weight: 700; white-space: nowrap; background: var(--card); padding: 0 3px; border-radius: 4px; }
+.gt-tip { position: fixed; z-index: 60; background: #1d232b; color: #fff; font-size: 12.5px; line-height: 1.45; padding: 8px 10px; border-radius: 8px; white-space: pre-line; pointer-events: none; max-width: 300px; box-shadow: 0 6px 18px rgba(0,0,0,.25); }
+.gt-tip[hidden] { display: none; }
 /* Tiến độ */
 .prog { margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--line); }
 .pg-group { border: 1px solid var(--line); border-radius: 12px; margin-bottom: 10px; background: var(--card); overflow: hidden; }

@@ -288,7 +288,7 @@ const VIEWS = {
       <div class="stat"><div class="k">Giá trị hợp đồng</div><div class="v num">${short(sum(S.projects, p => p.contract))}</div></div>
       <div class="stat"><div class="k">Đã thu</div><div class="v num pos">${short(thu)}</div></div>
       <div class="stat"><div class="k">Đã chi</div><div class="v num neg">${short(chi)}</div></div>
-    </div><div class="list cols">${S.projects.map(p => {
+    </div>${window.dueBannerHTML ? dueBannerHTML() : ''}<div class="list cols">${S.projects.map(p => {
       const m = pMoney(p.id), base = p.budget || p.contract, pct = base ? Math.round(m.chi / base * 100) : 0;
       const nq = S.quotes.filter(q => q.projectId === p.id).length, nl = S.logs.filter(l => l.projectId === p.id).length;
       const cover = (p.photos || [])[0];
@@ -875,7 +875,9 @@ function sampleData() {
     { id: p1, name: 'Nhà phố 4 tầng – anh Minh', client: 'Nguyễn Văn Minh', phone: '0901 234 567', address: '25 Đường số 7, Q.7, TP.HCM', start: d(45), end: '', status: 'active', contract: 2450000000, budget: 2050000000, note: '' },
     { id: p2, name: 'Cải tạo căn hộ – chị Lan', client: 'Trần Thị Lan', phone: '', address: 'Chung cư Sunrise, Q.7', start: d(10), end: '', status: 'prep', contract: 380000000, budget: 310000000, note: '' });
   S.quotes.push(
-    { id: uid(), projectId: p1, no: nextQuoteNo(), date: d(50), title: 'Báo giá thi công phần thô', form: 'rough', coef: false, customer: 'Nguyễn Văn Minh', status: 'approved', vat: 8, discount: 2, note: 'Báo giá có hiệu lực 30 ngày.\nThanh toán theo 5 đợt theo tiến độ.',
+    { id: uid(), projectId: p1, no: nextQuoteNo(), date: d(50), title: 'Báo giá thi công phần thô', form: 'rough', coef: false, customer: 'Nguyễn Văn Minh', status: 'approved',
+      // Hợp đồng mẫu: đã thu 2 đợt đầu, các đợt sau nhắc theo mốc tiến độ
+      ct: { form: 'rough', no: '01/2026/HĐTC', date: d(46), deduct: 0, pay: FORMS.rough.pay.map((x, i) => ({ ...x, ...(i < 2 ? { paid: { date: d(44 - i * 24), costId: '' } } : {}) })) }, vat: 8, discount: 2, note: 'Báo giá có hiệu lực 30 ngày.\nThanh toán theo 5 đợt theo tiến độ.',
       items: [{ name: 'Thi công phần thô (vật tư + nhân công)', unit: 'm²', qty: 320, price: 3900000 }, { name: 'Ép cọc bê tông 250x250', unit: 'md', qty: 480, price: 290000 }, { name: 'Chống thấm sàn mái, WC', unit: 'm²', qty: 95, price: 180000 }] });
   S.quotes.push({ id: uid(), projectId: p2, no: nextQuoteNo(), date: d(8), title: 'Báo giá cải tạo nội thất', customer: 'Trần Thị Lan', status: 'sent', vat: 8, discount: 0, note: '',
     items: [{ name: 'Tháo dỡ, đục phá', unit: 'm²', qty: 70, price: 150000 }, { name: 'Tủ bếp trên + dưới', unit: 'md', qty: 6.5, price: 7500000 }, { name: 'Sơn lại toàn bộ', unit: 'm²', qty: 260, price: 75000 }] });
