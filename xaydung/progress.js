@@ -242,10 +242,10 @@ function openProgress(pid) {
   const el = openSheet(`<header><h2>Tiến độ · ${esc(p.name)}</h2><button class="btn sm" data-act="closeSheet" type="button">Đóng</button></header><div class="body" id="pgBody"></div><footer id="pgFoot"></footer>`, true);
   el.classList.add('xwide');
   const $p = s => $(s, el);
-  let filter = 'all', openGroups = null, payOpen = false, tab = 'plan';
+  let filter = 'all', openGroups = null, payOpen = false, tab = 'plan', repWeek = weekStartOf(today());
   const tabsHTML = () => {
     const w = accWaiting(pid).length, n = changesOf(pid).length;
-    return `<div class="pg-tabs" role="tablist">${[['plan', '📅 Tiến độ'], ['acc', `📋 Nghiệm thu${w ? ` <span class="badge orange">${w}</span>` : ''}`], ['chg', `➕ Phát sinh${n ? ` <span class="badge">${n}</span>` : ''}`]]
+    return `<div class="pg-tabs" role="tablist">${[['plan', '📅 Tiến độ'], ['acc', `📋 Nghiệm thu${w ? ` <span class="badge orange">${w}</span>` : ''}`], ['chg', `➕ Phát sinh${n ? ` <span class="badge">${n}</span>` : ''}`], ['rep', '📰 Báo cáo tuần']]
       .map(([k, v]) => `<button class="${tab === k ? 'on' : ''}" type="button" role="tab" aria-selected="${tab === k}" data-tab="${k}">${v}</button>`).join('')}</div>`;
   };
   if (!S.ui.pgView) S.ui.pgView = innerWidth >= 900 ? 'chart' : 'list';
@@ -445,6 +445,38 @@ function openProgress(pid) {
     };
   };
 
+  // ---- Báo cáo tuần + link cho chủ nhà ----
+  const drawReport = () => {
+    const p = proj(pid), r = weekReport(pid, repWeek), link = shareLink(p), signed = window.Sync && Sync.signedIn();
+    const thisWeek = weekStartOf(today());
+    $p('#pgBody').innerHTML = tabsHTML() + `<div class="card mb share-card"><div class="row between wrap" style="gap:8px"><b>🔗 Link xem tiến độ cho chủ nhà</b>${link ? '<span class="badge green">Đang bật</span>' : ''}</div>
+        <p class="small muted mt">Chủ nhà mở link trên điện thoại để xem % hoàn thành, các mốc, nghiệm thu, nhật ký và ảnh công trình. <b>Không hiện số tiền.</b> Link tự cập nhật khi có thay đổi.</p>
+        ${!signed ? '<p class="small warn mt">Cần đăng nhập đồng bộ trong Cài đặt để tạo link.</p>'
+          : link ? `<div class="row mt" style="gap:6px"><input id="shLink" readonly value="${esc(link)}" aria-label="Link cho chủ nhà" class="grow"><button class="btn sm" type="button" id="shCopy">Sao chép</button></div>
+            <div class="btns mt"><a class="btn sm" href="${esc(link)}" target="_blank" rel="noopener">Mở xem thử</a><button class="btn sm" type="button" id="shNow">⟳ Cập nhật ngay</button><button class="btn sm danger" type="button" id="shOff">Tắt link</button></div>
+            <p class="small muted mt" id="shAt">${p.share.at ? 'Cập nhật lần cuối: ' + new Date(p.share.at).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' }) : ''}</p>`
+          : '<div class="btns mt"><button class="btn primary sm" type="button" id="shOn">Tạo link cho chủ nhà</button></div>'}</div>
+      <div class="row between wrap mb" style="gap:8px"><div class="btns" style="align-items:center"><button class="btn sm" type="button" id="wkPrev" aria-label="Tuần trước">‹</button><b>Tuần ${ddmm(r.from)} – ${fdate(r.to)}</b><button class="btn sm" type="button" id="wkNext" aria-label="Tuần sau"${repWeek >= thisWeek ? ' disabled' : ''}>›</button></div>
+        <div class="btns"><button class="btn sm" type="button" id="wkCopy">📋 Sao chép tin nhắn Zalo</button><button class="btn sm" type="button" id="wkPrint">🖨 In / PDF</button></div></div>
+      <div class="paper wr-paper" id="wkDoc"></div>`;
+    $p('#wkDoc').innerHTML = weekReportHTML(r, true);
+    Promise.all(r.photos.slice(-9).map(getPhoto)).then(() => { if ($p('#wkDoc')) $p('#wkDoc').innerHTML = weekReportHTML(r, true); });
+    $p('#pgFoot').innerHTML = '';
+    const copy = async (text, msg) => {
+      try { await navigator.clipboard.writeText(text); toast(msg); }
+      catch (e) { const ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove(); toast(msg); }
+    };
+    $p('#wkPrev').onclick = () => { repWeek = addDays(repWeek, -7); draw(); };
+    $p('#wkNext').onclick = () => { repWeek = addDays(repWeek, 7); draw(); };
+    $p('#wkCopy').onclick = () => copy(weekReportText(r, link), 'Đã sao chép — dán vào Zalo để gửi chủ nhà');
+    $p('#wkPrint').onclick = async () => { for (const id of r.photos.slice(-9)) await getPhoto(id); printHTML(weekReportHTML(r, true)); };
+    const run = async (btn, fn, ok) => { btn.disabled = true; try { await fn(); toast(ok); } catch (e) { toast(e.message || 'Không kết nối được máy chủ'); } draw(); };
+    if ($p('#shOn')) $p('#shOn').onclick = e => run(e.target, () => Share.enable(pid), 'Đã tạo link — bấm Sao chép để gửi chủ nhà');
+    if ($p('#shNow')) $p('#shNow').onclick = e => run(e.target, () => Share.publish(pid, true), 'Đã cập nhật link');
+    if ($p('#shOff')) $p('#shOff').onclick = e => { if (confirm('Tắt link? Chủ nhà sẽ không mở được link này nữa.')) run(e.target, () => Share.disable(pid), 'Đã tắt link'); };
+    if ($p('#shCopy')) $p('#shCopy').onclick = () => copy(link, 'Đã sao chép link');
+  };
+
   // ---- Phiếu phát sinh ----
   const drawChanges = () => {
     const cs = changeSummary(pid);
@@ -636,6 +668,7 @@ function openProgress(pid) {
     const b = $p('#pgBody'); b.onchange = b.oninput = b.onclick = null;
     if (tab === 'acc') return drawAccList();
     if (tab === 'chg') return drawChanges();
+    if (tab === 'rep') return drawReport();
     const list = tasksOf(pid); if (list.length) drawPlan(list); else drawSetup();
   };
   // Đã thu / bỏ đã thu: ghi hoặc xóa khoản thu bên Chi phí

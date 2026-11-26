@@ -333,6 +333,18 @@ const Sync = (() => {
   return {
     init, card, fetchPhoto, fetchFile,
     signedIn: () => !!user,
+    // Kho công khai "share": ảnh chụp tiến độ cho chủ nhà xem qua link (chỉ thành viên được ghi)
+    async shareUpload(path, body, type) {
+      if (!sb || !user) throw new Error('Chưa đăng nhập đồng bộ');
+      const { error } = await sb.storage.from('share').upload(path, body instanceof Blob ? await body.arrayBuffer() : body, { upsert: true, contentType: type, cacheControl: '60' });
+      if (error) throw error;
+    },
+    async shareRemove(paths) {
+      if (!sb || !user || !paths.length) return;
+      const { error } = await sb.storage.from('share').remove(paths);
+      if (error) throw error;
+    },
+    publicUrl: path => `${cfg().url.replace(/\/+$/, '')}/storage/v1/object/public/share/${path}`,
     // Gọi sau mỗi lần dữ liệu thay đổi trên máy này
     changed() { if (user && dirtyList().length) { setStatus('pending'); schedule(1500); } },
     // Quên trạng thái đồng bộ: lần đồng bộ sau sẽ gộp với dữ liệu chung, không xóa gì trên máy chủ

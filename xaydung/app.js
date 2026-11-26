@@ -81,6 +81,7 @@ function save() {
   clearTimeout(saveTimer);
   saveTimer = setTimeout(() => { saveTimer = 0; DB.set('kv', 'state', S).catch(() => toast('Không lưu được dữ liệu — bộ nhớ đầy?')); }, 150);
   if (window.Sync) Sync.changed();
+  if (window.Share) Share.touch();
 }
 // Đóng hoặc chuyển ứng dụng ngay sau khi bấm Lưu: ghi ngay, không chờ
 function flushSave() {

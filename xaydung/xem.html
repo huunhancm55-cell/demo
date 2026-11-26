@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Tiến độ công trình – Hữu Nhân</title>
+<meta name="robots" content="noindex, nofollow">
+<meta name="referrer" content="no-referrer">
+<meta name="theme-color" content="#163a5c">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap">
+<link rel="stylesheet" href="style.css">
+<style>
+  .xv { max-width: 760px; margin: 0 auto; padding: 16px 16px calc(28px + var(--sab)); }
+  .xv-top { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+  .xv-top img { width: 64px; height: auto; background: #fff; border-radius: 10px; padding: 4px; }
+  .xv-top .co { font-weight: 700; font-size: 14px; } .xv-top .ph { font-size: 13px; color: var(--muted); } .xv-top .ph a { color: var(--blue); font-weight: 700; text-decoration: none; }
+  .xv ul { margin: 4px 0; padding-left: 20px; }
+  .xv h1 { font-size: 22px; line-height: 1.25; }
+  .xv h2 { font-size: 16px; margin: 22px 0 10px; }
+  .xv-cover { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; border-radius: var(--radius); display: block; margin-bottom: 12px; background: var(--gray-soft); }
+  .xv-pct { font-size: 40px; font-weight: 800; line-height: 1; }
+  .xv-bar { height: 12px; margin-top: 10px; }
+  .xv-kv { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 12px; }
+  .xv-kv div { background: var(--bg); border-radius: 10px; padding: 8px 10px; } .xv-kv small { display: block; color: var(--muted); font-size: 12px; } .xv-kv b { font-size: 15px; }
+  .xv-g { border: 1px solid var(--line); border-radius: 12px; background: var(--card); margin-bottom: 8px; overflow: hidden; }
+  .xv-g > summary { list-style: none; display: flex; align-items: center; gap: 10px; padding: 11px 12px; cursor: pointer; font-weight: 600; }
+  .xv-g > summary::-webkit-details-marker { display: none; }
+  .xv-g > summary .grow { flex: 1; min-width: 0; }
+  .xv-g[open] > summary { border-bottom: 1px solid var(--line); }
+  .xv-t { padding: 9px 12px; border-top: 1px solid var(--line); }
+  .xv-t:first-of-type { border-top: 0; }
+  .xv-t .row { align-items: flex-start; }
+  .xv-ths { display: flex; gap: 6px; margin-top: 6px; overflow-x: auto; }
+  .xv-ths img, .xv-gal img { width: 84px; height: 84px; object-fit: cover; border-radius: 8px; flex: none; cursor: zoom-in; background: var(--gray-soft); display: block; }
+  .xv-gal { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 6px; }
+  .xv-gal img { width: 100%; height: auto; aspect-ratio: 1; }
+  .xv-log { padding: 10px 0; border-top: 1px solid var(--line); } .xv-log:first-child { border-top: 0; }
+  .xv-pre { white-space: pre-wrap; }
+  .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; flex: none; margin-top: 5px; background: var(--line); }
+  .dot.done { background: var(--st-done); } .dot.doing { background: var(--st-doing); } .dot.late { background: var(--st-late); }
+  #lb { position: fixed; inset: 0; background: rgba(0, 0, 0, .9); display: flex; align-items: center; justify-content: center; z-index: 50; }
+  #lb[hidden] { display: none; } #lb img { max-width: 100vw; max-height: 100vh; object-fit: contain; }
+  .xv-foot { text-align: center; color: var(--muted); font-size: 12.5px; margin-top: 26px; }
+  @media (max-width: 480px) { .xv-kv { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } .xv-kv div:last-child { grid-column: 1 / -1; } }
+</style>
+</head>
+<body>
+<main class="xv" id="xv"><p class="muted">Đang tải tiến độ công trình…</p></main>
+<div id="lb" hidden><img alt="Ảnh công trình"></div>
+<script src="config.js"></script>
+<script src="xem.js"></script>
+</body>
+</html>

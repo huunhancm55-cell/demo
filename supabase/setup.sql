@@ -71,6 +71,17 @@ create policy "members files" on storage.objects
   using (bucket_id = 'files' and public.is_member())
   with check (bucket_id = 'files' and public.is_member());
 
+-- 4b. Link chủ nhà xem tiến độ (công khai, chỉ đọc theo đường dẫn khó đoán; chỉ thành viên được ghi)
+insert into storage.buckets (id, name, public, file_size_limit)
+values ('share', 'share', true, 5242880)
+on conflict (id) do update set public = true;
+
+drop policy if exists "members share" on storage.objects;
+create policy "members share" on storage.objects
+  for all to authenticated
+  using (bucket_id = 'share' and public.is_member())
+  with check (bucket_id = 'share' and public.is_member());
+
 -- 5. THÊM THÀNH VIÊN: thay email dưới đây bằng email đăng nhập của bạn.
 --    Muốn thêm người khác thì thêm dòng tương tự với email của họ.
 insert into public.members (email) values ('EMAIL_CUA_BAN@gmail.com') on conflict do nothing;
