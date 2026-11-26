@@ -4,7 +4,7 @@
    - Máy nào cũng lưu đầy đủ dữ liệu cục bộ (chạy được khi mất mạng); có mạng thì đẩy thay đổi lên và kéo thay đổi về.
    - Ảnh nhật ký và tệp hồ sơ nằm trong kho lưu trữ `files` (p/<id> là ảnh, f/<id> là tệp). */
 const Sync = (() => {
-  const KINDS = ['projects', 'quotes', 'logs', 'costs', 'docs'];
+  const KINDS = ['projects', 'quotes', 'logs', 'costs', 'docs', 'tasks'];
   const LIB = 'vendor/supabase-js-2.118.0.js';
   const BUCKET = 'files';
   const PAGE = 1000;
@@ -52,7 +52,7 @@ const Sync = (() => {
   const blobPaths = rec => [...(rec?.photos || []).map(id => 'p/' + id), ...(rec?.files || []).map(f => 'f/' + f.id)];
   function referencedBlobs() {
     const s = new Set();
-    for (const l of [...S.logs, ...S.projects]) blobPaths(l).forEach(p => s.add(p));
+    for (const l of [...S.logs, ...S.projects, ...S.tasks]) blobPaths(l).forEach(p => s.add(p));
     for (const d of S.docs) blobPaths(d).forEach(p => s.add(p));
     return s;
   }
@@ -96,7 +96,7 @@ const Sync = (() => {
       if (!local || local[0] === 'settings') return false;
       const arr = S[local[0]];
       arr.splice(arr.indexOf(local[1]), 1); cur.delete(id);
-      if (local[0] === 'logs' || local[0] === 'projects') (local[1].photos || []).forEach(p => DB.del('photos', p));
+      if (['logs', 'projects', 'tasks'].includes(local[0])) (local[1].photos || []).forEach(p => DB.del('photos', p));
       if (local[0] === 'docs') (local[1].files || []).forEach(f => DB.del('files', f.id));
       if (local[0] === 'projects' && S.ui.pid === id) S.ui.pid = '';
       return true;

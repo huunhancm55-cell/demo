@@ -71,7 +71,7 @@ const DB = {
 };
 
 const blank = () => ({
-  projects: [], quotes: [], logs: [], costs: [], docs: [],
+  projects: [], quotes: [], logs: [], costs: [], docs: [], tasks: [],
   settings: { company: 'Công ty TNHH MTV Xây dựng Thương mại Hữu Nhân', phone: '0914 580 385', address: '364 Quang Trung, khóm 20, P. Tân Thành, Cà Mau', tax: '2001297621' },
   ui: { tab: 'projects', pid: '', ctype: '', dtype: '' },
 });
@@ -301,11 +301,13 @@ const VIEWS = {
         <div class="row between wrap small mt"><span class="muted">Chi phí / ${p.budget ? 'ngân sách' : 'hợp đồng'}</span><span class="num"><b>${short(m.chi)}</b> / ${short(base)}${base ? ` (${pct}%)` : ''}</span></div>
         <div class="bar mt"><i class="${pct > 100 ? 'over' : ''}" style="width:${Math.min(pct, 100)}%"></i></div>
         <div class="row between wrap small mt"><span class="muted">Đã thu <b class="pos num">${short(m.thu)}</b></span><span class="muted">Lãi tạm tính <b class="num ${p.contract - m.chi < 0 ? 'neg' : 'pos'}">${short(p.contract - m.chi)}</b></span></div>
+        ${window.progressSummaryHTML ? progressSummaryHTML(p) : ''}
         <div class="row wrap mt" style="column-gap:16px">
           <button class="linkbtn" data-act="go" data-id="${p.id}" data-tab="quotes">Báo giá (${nq})</button>
           <button class="linkbtn" data-act="go" data-id="${p.id}" data-tab="logs">Nhật ký (${nl})</button>
           <button class="linkbtn" data-act="go" data-id="${p.id}" data-tab="costs">Chi phí</button>
           <button class="linkbtn" data-act="go" data-id="${p.id}" data-tab="docs">Hồ sơ (${S.docs.filter(d => d.projectId === p.id).length})</button>
+          ${window.progressLinkLabel ? `<button class="linkbtn" data-act="openProgress" data-id="${p.id}">${progressLinkLabel(p)}</button>` : ''}
         </div></div>`;
     }).join('')}</div>`;
   },
@@ -525,7 +527,8 @@ function formProject(id) {
       (p.photos || []).forEach(ph => DB.del('photos', ph));
       S.logs.filter(l => l.projectId === id).forEach(l => (l.photos || []).forEach(ph => DB.del('photos', ph)));
       S.docs.filter(d => d.projectId === id).forEach(d => (d.files || []).forEach(f => DB.del('files', f.id)));
-      for (const k of ['quotes', 'logs', 'costs', 'docs']) S[k] = S[k].filter(x => x.projectId !== id);
+      S.tasks.filter(t => t.projectId === id).forEach(t => (t.photos || []).forEach(ph => DB.del('photos', ph)));
+      for (const k of ['quotes', 'logs', 'costs', 'docs', 'tasks']) S[k] = S[k].filter(x => x.projectId !== id);
       S.projects = S.projects.filter(x => x.id !== id);
       if (S.ui.pid === id) S.ui.pid = '';
     }),
@@ -828,21 +831,21 @@ function download(name, blob) {
 }
 async function backup() {
   const photos = {};
-  for (const x of [...S.logs, ...S.projects]) for (const id of x.photos || []) photos[id] = await getPhoto(id);
+  for (const x of [...S.logs, ...S.projects, ...S.tasks]) for (const id of x.photos || []) photos[id] = await getPhoto(id);
   const files = {};
   for (const d of S.docs) for (const f of d.files || []) { const b = await DB.get('files', f.id); if (b) files[f.id] = await blobToDataURL(b); }
   download(`sao-luu-xay-dung-${today()}.json`, new Blob([JSON.stringify({ app: 'qlxd', v: 2, state: S, photos, files })], { type: 'application/json' }));
 }
 // Gói dự án: chỉ THÊM các mục chưa có (theo mã), không xóa hay ghi đè dữ liệu hiện có
 async function importPackage(d) {
-  const kinds = ['projects', 'quotes', 'logs', 'costs', 'docs'];
+  const kinds = ['projects', 'quotes', 'logs', 'costs', 'docs', 'tasks'];
   const add = {};
   for (const k of kinds) add[k] = (Array.isArray(d[k]) ? d[k] : []).filter(r => r && typeof r.id === 'string' && !S[k].some(x => x.id === r.id));
   const total = kinds.reduce((t, k) => t + add[k].length, 0);
   if (!total) return toast('Các mục trong file này đã có sẵn, không có gì để thêm');
   const names = add.projects.map(p => p.name).filter(Boolean).join(', ');
   if (!confirm(`Thêm ${total} mục${names ? ` (dự án: ${names})` : ''} vào dữ liệu hiện có? Không xóa hay ghi đè mục nào.`)) return;
-  const ph = new Set([...add.logs, ...add.projects].flatMap(l => l.photos || [])), fl = new Set(add.docs.flatMap(x => (x.files || []).map(f => f.id)));
+  const ph = new Set([...add.logs, ...add.projects, ...add.tasks].flatMap(l => l.photos || [])), fl = new Set(add.docs.flatMap(x => (x.files || []).map(f => f.id)));
   for (const [id, src] of Object.entries(d.photos || {})) if (ph.has(id) && typeof src === 'string' && src.startsWith('data:image/')) await DB.set('photos', id, src);
   for (const [id, src] of Object.entries(d.files || {})) if (fl.has(id) && typeof src === 'string' && src.startsWith('data:')) await DB.set('files', id, await (await fetch(src)).blob());
   for (const k of kinds) S[k].push(...add[k]);
@@ -886,6 +889,16 @@ function sampleData() {
   c(p1, 22, 'chi', 'Vật tư', 94500000, 'Bê tông tươi M250 – 75 m³', 'Bê tông Lê Phan'); c(p1, 14, 'chi', 'Nhân công', 126000000, 'Lương đội thi công tháng 1');
   c(p1, 6, 'chi', 'Máy thi công', 18500000, 'Thuê bơm bê tông, giàn giáo'); c(p1, 2, 'chi', 'Vận chuyển', 6200000, 'Vận chuyển cát đá');
   c(p2, 5, 'thu', '', 114000000, 'Tạm ứng 30%'); c(p2, 3, 'chi', 'Nhân công', 10500000, 'Tháo dỡ hiện trạng');
+  // Tiến độ mẫu cho nhà phố 4 tầng: các mốc đã qua 3 ngày trước được đánh dấu xong
+  if (typeof buildPlan === 'function') {
+    const opt = { floors: 3, roof: 'btct', tum: false, pile: true };
+    schedule(buildPlan(opt), d(45)).forEach((t, i) => {
+      delete t.par;
+      const done = taskEnd(t) <= d(3);
+      S.tasks.push({ id: uid(), projectId: p1, order: i, done, doneDate: done ? taskEnd(t) : '', photos: [], note: '', ...t });
+    });
+    proj(p1).plan = opt;
+  }
   save(); render(); toast('Đã thêm dữ liệu mẫu');
 }
 
@@ -895,6 +908,7 @@ const ACT = {
   go: d => { S.ui.pid = d.id; S.ui.tab = d.tab; save(); render(); window.scrollTo(0, 0); },
   add: () => ({ projects: formProject, quotes: formQuote, logs: formLog, costs: formCost, docs: formDoc }[S.ui.tab] || formProject)(),
   editProject: d => formProject(d.id),
+  openProgress: d => openProgress(d.id),
   // Thêm ảnh phối cảnh ngay trên thẻ dự án
   addCover: d => {
     const inp = document.createElement('input');

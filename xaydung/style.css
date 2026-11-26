@@ -184,6 +184,22 @@ label { display: block; font-size: 13px; font-weight: 600; color: var(--muted); 
 .ct table.qt th, .ct table.qt td { padding: 3px 6px; font-size: .9em; line-height: 1.35; }
 .ct table.qt th { font-size: .82em; }
 .ct table.signs { margin-top: 24px; page-break-inside: avoid; }
+/* Tiến độ */
+.prog { margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--line); }
+.pg-group { border: 1px solid var(--line); border-radius: 12px; margin-bottom: 10px; background: var(--card); overflow: hidden; }
+.pg-gh { display: flex; align-items: center; gap: 8px; padding: 10px 12px; cursor: pointer; background: var(--gray-soft); }
+.pg-group.gdone .pg-gh b { color: var(--green); }
+.pg-arrow { width: 14px; color: var(--muted); }
+.pg-t { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-top: 1px solid var(--line); }
+.pg-t > .grow { flex: 1; }
+.pg-nm { overflow-wrap: anywhere; }
+.pg-t.done .pg-nm { color: var(--muted); }
+.pg-ck { flex: none; width: 32px; height: 32px; border-radius: 50%; border: 2px solid var(--line); background: var(--card); color: #fff; font-weight: 800; font-size: 16px; line-height: 1; padding: 0; }
+.pg-t.done .pg-ck { background: var(--green); border-color: var(--green); }
+.pg-t.late .pg-ck { border-color: var(--red); }
+.pg-t.doing .pg-ck { border-color: var(--accent); }
+.pg-t .badge { flex: none; }
+.pg-gf { border-top: 1px solid var(--line); padding: 4px 12px; text-align: right; }
 .catrow { display: grid; grid-template-columns: 110px 1fr auto; gap: 10px; align-items: center; font-size: 13.5px; padding: 4px 0; }
 
 /* ---------- Sheet (form) ---------- */
