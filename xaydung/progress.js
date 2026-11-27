@@ -106,8 +106,8 @@ function guessChk(name) {
   if (/ép cọc|cọc/.test(n)) return 'coc';
   if (/đào/.test(n) && /móng|hố/.test(n)) return 'daomong';
   if (/cốt thép|thép sàn|thép dầm|cốp pha/.test(n)) return 'thep';
+  if (/(điện|nước|(^|[\s,;(])ống|cấp thoát|pccc|điều hòa|máy lạnh)/.test(n) && /((^|\s)âm\s|(^|\s)đi\s|(^|[\s,;(])ống|dây)/.test(n)) return 'diennuoc';
   if (/chống thấm/.test(n)) return 'chongtham';
-  if (/(điện|nước|ống|cấp thoát|pccc|điều hòa|máy lạnh)/.test(n) && /(âm|đi |đường ống|lắp ống|ống|dây)/.test(n)) return 'diennuoc';
   if (/thiết bị|lắp đặt (đèn|máy|thiết)|chạy thử/.test(n)) return 'thietbi';
   return '';
 }
@@ -121,11 +121,22 @@ function parsePlanText(text) {
     const isGroup = /^(#+\s*|[IVXLC]+[.)]\s+|[A-HJ-Z][.)]\s+|(PHẦN|HẠNG MỤC|GIAI ĐOẠN)\b)/i.test(line) && !/\d+\s*ngày/i.test(line) || /:\s*$/.test(line)
       || (line.length > 3 && line === line.toUpperCase() && /[A-ZÀ-Ỹ]/.test(line) && !/\d+\s*NGÀY/.test(line));
     if (isGroup) { group = line.replace(/^#+\s*/, '').replace(/^[IVXLC]+[.)]\s+|^[A-Z][.)]\s+/i, '').replace(/:\s*$/, '').trim() || group; continue; }
+    // Ngày bắt đầu – hoàn thành ghi trong dòng (dd/mm/yyyy), phần sau dấu | cuối cùng là ghi chú
+    const dm = [...line.matchAll(/(\d{1,2})\/(\d{1,2})\/(\d{4})/g)].map(x => `${x[3]}-${x[2].padStart(2, '0')}-${x[1].padStart(2, '0')}`);
+    let note = '', start = '';
+    if (dm.length) {
+      const parts = line.split('|').map(x => x.trim());
+      const di = parts.findIndex(x => /\d{1,2}\/\d{1,2}\/\d{4}/.test(x));
+      note = di >= 0 ? parts.slice(di + 1).join(' | ') : '';
+      line = di > 0 ? parts.slice(0, di).join(' | ') : line.replace(/\d{1,2}\/\d{1,2}\/\d{4}/g, '').replace(/[–-]\s*$/, '');
+      start = dm[0];
+      if (dm[1] && dm[1] >= dm[0]) { const name = line.replace(/^(\d+(\.\d+)*[.)]?|[-–•*+])\s*/, '').replace(/[|–:-]\s*$/, '').trim(); if (name) out.push({ group, name, start, days: diffDays(dm[1], dm[0]) + 1, note, inc: true, src: true }); continue; }
+    }
     let days = 2;
     const m = /(?:[-–:|(,]\s*)?(\d+(?:[.,]\d+)?)\s*(?:ngày|n)\s*\)?\s*$/i.exec(line) || /\|\s*(\d+(?:[.,]\d+)?)\s*$/.exec(line);
     if (m) { days = Math.max(1, Math.round(dec(m[1]))); line = line.slice(0, m.index).trim(); }
     const name = line.replace(/^(\d+(\.\d+)*[.)]?|[-–•*+])\s*/, '').replace(/[|–:-]\s*$/, '').trim();
-    if (name) out.push({ group, name, days, inc: true, src: true });
+    if (name) out.push({ group, name, days, ...(start ? { start } : {}), ...(note ? { note } : {}), inc: true, src: true });
   }
   return out;
 }
@@ -324,14 +335,17 @@ function openProgress(pid) {
       if (!box) return;
       let g = null;
       box.innerHTML = `<p class="small mb" id="pgRowsSum"></p>`
-        + rows.map((r, i) => (r.group !== g ? `<div class="pg-sg">${esc(g = r.group)}</div>` : '') + `<div class="pg-sr${r.inc ? '' : ' off'}"><input type="checkbox" data-ri="${i}" data-rk="inc"${r.inc ? ' checked' : ''} aria-label="Chọn mốc"><input data-ri="${i}" data-rk="name" value="${esc(r.name)}" aria-label="Tên mốc"><input data-ri="${i}" data-rk="days" inputmode="numeric" value="${r.days}" aria-label="Số ngày"><span class="small muted">ngày</span></div>`).join('');
+        + rows.map((r, i) => (r.group !== g ? `<div class="pg-sg">${esc(g = r.group)}</div>` : '') + `<div class="pg-sr${r.inc ? '' : ' off'}"><input type="checkbox" data-ri="${i}" data-rk="inc"${r.inc ? ' checked' : ''} aria-label="Chọn mốc"><input data-ri="${i}" data-rk="name" value="${esc(r.name)}" aria-label="Tên mốc"><input data-ri="${i}" data-rk="days" inputmode="numeric" value="${r.days}" aria-label="Số ngày"><span class="small muted">ngày</span>${r.start ? `<span class="small muted pg-sd">${ddmm(r.start)} – ${ddmm(addDays(r.start, Math.max(1, +r.days || 1) - 1))}${r.note ? ' · ' + esc(r.note) : ''}</span>` : ''}</div>`).join('');
       drawSum();
     };
     const drawSum = () => {
       const el2 = $p('#pgRowsSum');
       if (!el2) return;
-      const inc = rows.filter(r => r.inc), days = inc.reduce((a, r) => a + Math.max(1, Math.round(+r.days || 1)), 0), start = $p('#pgStart').value || today();
-      el2.innerHTML = inc.length ? `<b>${inc.length} mốc</b> · ${days} ngày thi công nối tiếp · dự kiến xong <b>${fdate(addDays(start, days - 1))}</b> <span class="muted">(sửa số ngày, bỏ chọn mốc không cần; sau khi tạo vẫn sửa được)</span>` : '<span class="muted">Chưa có mốc nào.</span>';
+      const inc = rows.filter(r => r.inc), start = $p('#pgStart').value || today();
+      let cur = start, first = '';
+      for (const r of inc) { const st = r.start || cur, nx = addDays(st, Math.max(1, Math.round(+r.days || 1))); if (!first || st < first) first = st; if (nx > cur) cur = nx; }
+      const fin = addDays(cur, -1), fixed = inc.some(r => r.start);
+      el2.innerHTML = inc.length ? `<b>${inc.length} mốc</b> · ${fixed ? `theo ngày ghi trong danh sách, từ ${fdate(first)}` : `${diffDays(fin, start) + 1} ngày thi công nối tiếp`} · dự kiến xong <b>${fdate(fin)}</b> <span class="muted">(sửa số ngày, bỏ chọn mốc không cần; sau khi tạo vẫn sửa được)</span>` : '<span class="muted">Chưa có mốc nào.</span>';
     };
     const ends = () => [$p('#pgPrep')?.checked && { group: 'Chuẩn bị', name: 'Nhận mặt bằng, lập biên bản hiện trạng, che chắn công trình', days: 1, inc: true },
       $p('#pgHand')?.checked && { group: 'Bàn giao', name: 'Vệ sinh, nghiệm thu, bàn giao công trình', days: 2, inc: true, pay: 'bangiao' }];
@@ -372,7 +386,12 @@ function openProgress(pid) {
       if (setupSrc === 'tpl') preview(); else drawSum();
     };
     $p('#pgBody').oninput = e => {
-      if (e.target.id === 'pgPaste') { rows = bookends(parsePlanText(e.target.value)); return drawRows(); }
+      if (e.target.id === 'pgPaste') {
+        const parsed = parsePlanText(e.target.value);
+        // Danh sách đã có ngày (bảng tiến độ hợp đồng) thường có sẵn mốc chuẩn bị / bàn giao
+        if (parsed.some(r => r.start)) { $p('#pgPrep').checked = false; $p('#pgHand').checked = false; }
+        rows = bookends(parsed); return drawRows();
+      }
       const i = e.target.dataset.ri;
       if (i !== undefined && e.target.dataset.rk !== 'inc') { rows[+i][e.target.dataset.rk] = e.target.dataset.rk === 'days' ? Math.max(1, Math.round(dec(e.target.value) || 1)) : e.target.value; drawSum(); }
     };
@@ -382,9 +401,13 @@ function openProgress(pid) {
       let list;
       if (setupSrc === 'tpl') { const o2 = readTpl(); list = schedule(buildPlan(o2), start); p.plan = { floors: o2.floors, roof: o2.roof, tum: o2.tum, pile: o2.pile }; }
       else {
-        list = rows.filter(r => r.inc && String(r.name).trim()).map(r => ({ group: r.group || 'Thi công', name: String(r.name).trim(), days: Math.max(1, Math.round(+r.days || 1)), chk: r.chk || guessChk(r.name), pay: r.pay || '' }));
+        list = rows.filter(r => r.inc && String(r.name).trim()).map(r => ({ group: r.group || 'Thi công', name: String(r.name).trim(), days: Math.max(1, Math.round(+r.days || 1)), chk: r.chk || guessChk(r.name), pay: r.pay || '', ...(r.start ? { fixed: r.start } : {}), ...(r.note ? { note: r.note } : {}) }));
         if (!list.length) return toast('Chưa có mốc nào');
-        schedule(list, start);
+        // Mốc có ngày ghi sẵn (theo bảng tiến độ hợp đồng) giữ nguyên ngày, làm gối đầu được; mốc còn lại nối tiếp mốc trước
+        if (list.some(t => t.fixed)) {
+          let cur = start;
+          for (const t of list) { t.start = t.fixed || cur; delete t.fixed; const nx = addDays(t.start, t.days); if (nx > cur) cur = nx; }
+        } else schedule(list, start);
         if (setupSrc === 'paste') p.planText = $p('#pgPaste').value;
         p.plan = { src: setupSrc === 'paste' ? 'paste' : 'quote' };
       }
@@ -398,11 +421,23 @@ function openProgress(pid) {
         if (m) { used.add(m.id); return { ...m, ...t, id: m.id, order: i, done: m.done, doneDate: m.doneDate, doneBy: m.doneBy, photos: m.photos || [], note: m.note || '', acc: m.acc, chk: m.chk || t.chk }; }
         return { id: uid(), projectId: pid, order: i, done: false, doneDate: '', photos: [], note: '', ...t };
       });
+      // Giai đoạn cũ đã xong hết (VD Chuẩn bị) mà kế hoạch mới có giai đoạn cùng tên: giữ trạng thái xong, chuyển ảnh sang
+      let inherited = 0;
+      for (const g of new Set(created.map(t => t.group))) {
+        const og = old.filter(t => t.group === g && !used.has(t.id));
+        if (!og.length || !og.every(t => t.done)) continue;
+        const ng = created.filter(t => t.group === g && !t.done), dd = og.reduce((m, t) => (t.doneDate > m ? t.doneDate : m), '');
+        if (!ng.length) continue;
+        ng.forEach(t => { t.done = true; t.doneDate = dd; });
+        ng[0].photos = [...ng[0].photos, ...og.flatMap(t => t.photos || [])];
+        og.forEach(t => { used.add(t.id); t.photos = []; });
+        inherited += ng.length;
+      }
       old.filter(t => !used.has(t.id)).forEach(t => (t.photos || []).forEach(ph => DB.del('photos', ph)));
       S.tasks = S.tasks.filter(t => t.projectId !== pid).concat(created.map(t => { if (!t.acc) delete t.acc; if (!t.doneBy) delete t.doneBy; return t; }));
       if (!p.start || replacing) p.start = start;
       replacing = false; setupSrc = null; openGroups = null;
-      commit(); toast(`Đã tạo ${created.length} mốc tiến độ${used.size ? ` (giữ ${used.size} mốc đã làm)` : ''}`); draw();
+      commit(); toast(`Đã tạo ${created.length} mốc tiến độ${used.size ? ` (giữ trạng thái ${used.size} mốc đã làm${inherited ? `, ${inherited} mốc mới cùng giai đoạn đã xong` : ''})` : ''}`); draw();
     };
   };
 
