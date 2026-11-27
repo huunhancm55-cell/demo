@@ -444,3 +444,4 @@ a.btn { text-decoration: none; color: inherit; display: inline-flex; align-items
 .pg-sr input[data-rk=days] { text-align: right; }
 .pg-sr.off input:not([type=checkbox]) { opacity: .45; text-decoration: line-through; }
 .badge.ps { background: var(--warm-soft); color: var(--warm); }
+.pg-sd { grid-column: 2 / -1; margin-top: -2px; }
