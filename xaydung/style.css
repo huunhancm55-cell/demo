@@ -436,3 +436,11 @@ a.btn { text-decoration: none; color: inherit; display: inline-flex; align-items
 .crew-row { border-top: 1px solid var(--line); padding: 12px 0; }
 .crew-pj { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 8px; }
 .crew-pj .chk { font-size: 13.5px; }
+
+/* Lập kế hoạch theo hợp đồng / danh sách */
+.pg-sg { font-weight: 700; font-size: 13.5px; margin: 10px 0 4px; color: var(--blue); }
+.pg-sr { display: grid; grid-template-columns: 22px minmax(0, 1fr) 58px auto; gap: 6px; align-items: center; margin-bottom: 4px; }
+.pg-sr input:not([type=checkbox]) { padding: 6px 8px; font-size: 14px; min-width: 0; }
+.pg-sr input[data-rk=days] { text-align: right; }
+.pg-sr.off input:not([type=checkbox]) { opacity: .45; text-decoration: line-through; }
+.badge.ps { background: var(--warm-soft); color: var(--warm); }
