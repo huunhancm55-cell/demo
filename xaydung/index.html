@@ -37,14 +37,26 @@
     <h1>Quản lý công trình</h1>
     <p class="g-sub">Đăng nhập để tiếp tục</p>
     <div class="g-load"><span class="g-spin"></span> Đang mở…</div>
-    <form id="gForm" hidden>
-      <label for="gEmail">Email</label><input id="gEmail" type="email" autocomplete="username" autocapitalize="off" autocorrect="off" spellcheck="false" required>
-      <label for="gPass">Mật khẩu</label><input id="gPass" type="password" autocomplete="current-password" required>
+    <div id="gLogin" hidden>
+      <div id="gAccts"></div>
+      <div id="gOther">
+        <button class="btn g-google" type="button" id="gGoogle"><svg viewBox="0 0 48 48" width="20" height="20" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9 3.5l6.7-6.7C35.6 2.4 30.2 0 24 0 14.6 0 6.6 5.4 2.6 13.3l7.8 6C12.3 13.5 17.6 9.5 24 9.5z"/><path fill="#4285F4" d="M46.1 24.6c0-1.6-.1-3.1-.4-4.6H24v9h12.4c-.5 2.9-2.2 5.3-4.6 7l7.4 5.7c4.3-4 6.9-9.9 6.9-17.1z"/><path fill="#FBBC05" d="M10.4 28.7c-.5-1.4-.8-3-.8-4.7s.3-3.2.8-4.7l-7.8-6C.9 16.6 0 20.2 0 24s.9 7.4 2.6 10.7l7.8-6z"/><path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.4-5.7c-2.1 1.4-4.8 2.3-8.5 2.3-6.4 0-11.7-4-13.6-9.6l-7.8 6C6.6 42.6 14.6 48 24 48z"/></svg>Tiếp tục với Google</button>
+        <div class="g-or"><span>hoặc đăng nhập bằng email</span></div>
+        <form id="gForm">
+          <label for="gEmail">Email</label><input id="gEmail" type="email" autocomplete="username" autocapitalize="off" autocorrect="off" spellcheck="false" required>
+          <label for="gPass">Mật khẩu</label><div class="g-pw"><input id="gPass" type="password" autocomplete="current-password" required><button type="button" class="g-eye" id="gEye" aria-label="Hiện mật khẩu" aria-pressed="false">👁</button></div>
+          <button class="btn primary" type="submit">Đăng nhập</button>
+          <button class="linkbtn g-forgot" type="button" id="gForgot">Quên mật khẩu?</button>
+        </form>
+      </div>
       <p id="gErr" class="g-err" role="alert"></p>
-      <button class="btn primary" type="submit">Đăng nhập</button>
-      <button class="linkbtn g-forgot" type="button" id="gForgot">Quên mật khẩu?</button>
       <p class="g-hint">Chưa có tài khoản? Liên hệ chủ thầu để được cấp.</p>
-    </form>
+    </div>
+    <div id="gPend" hidden>
+      <div class="g-acct g-pwho" id="gPendWho"></div>
+      <p class="g-pmsg" id="gPendMsg"></p>
+      <div class="g-pbtn"><button class="btn primary" type="button" id="gPendCheck">⟳ Kiểm tra lại</button><button class="btn" type="button" id="gPendOut">Đăng xuất</button></div>
+    </div>
     <form id="gNew" hidden>
       <label for="gNewPass">Mật khẩu mới (ít nhất 6 ký tự)</label><input id="gNewPass" type="password" autocomplete="new-password" required>
       <label for="gNewPass2">Nhập lại mật khẩu mới</label><input id="gNewPass2" type="password" autocomplete="new-password" required>

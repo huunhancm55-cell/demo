@@ -471,3 +471,32 @@ body.gated { overflow: hidden; }
 body.gated > *:not(#gate):not(#toast):not(script) { visibility: hidden; }
 .g-forgot { justify-self: center; }
 .g-err .pos { color: var(--green); }
+
+/* Đăng nhập kiểu mạng xã hội: tài khoản đã dùng, Google, hiện mật khẩu */
+#gLogin[hidden], #gOther[hidden] { display: none; }
+#gOther { display: grid; gap: 10px; }
+.g-google { display: flex; align-items: center; justify-content: center; gap: 10px; min-height: 48px; font-size: 16px; font-weight: 600; background: var(--card); border: 1px solid var(--line); width: 100%; }
+.g-google.busy, .g-acct.busy { opacity: .6; pointer-events: none; }
+.g-or { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 12.5px; }
+.g-or::before, .g-or::after { content: ''; flex: 1; border-top: 1px solid var(--line); }
+.g-accts { display: grid; gap: 8px; margin-bottom: 6px; }
+.g-acct { display: flex; align-items: center; gap: 12px; text-align: left; background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px 10px 12px 14px; cursor: pointer; }
+.g-acct:hover, .g-acct:focus-visible { border-color: var(--accent); outline: none; }
+.g-acct img, .g-av { width: 46px; height: 46px; border-radius: 50%; flex: none; object-fit: cover; }
+.g-av { display: inline-flex; align-items: center; justify-content: center; background: var(--accent); color: var(--on-accent); font-weight: 700; font-size: 19px; }
+.g-acct .grow { flex: 1; min-width: 0; } .g-acct b { display: block; font-size: 15.5px; } .g-acct small { display: block; color: var(--muted); font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.g-x { border: 0; background: none; color: var(--muted); font-size: 22px; width: 34px; height: 34px; border-radius: 50%; flex: none; }
+.g-x:hover { background: var(--gray-soft); }
+.g-sw { display: block; margin: 4px auto 10px; }
+.g-pw { position: relative; } .g-pw input { width: 100%; padding-right: 46px; }
+.g-eye { position: absolute; right: 4px; top: 50%; transform: translateY(-50%); border: 0; background: none; width: 40px; height: 40px; opacity: .55; font-size: 18px; }
+.g-eye.on { opacity: 1; }
+.g-box #gErr { text-align: center; margin-top: 10px; }
+#gPend[hidden] { display: none; }
+.g-pwho { cursor: default; }
+.g-pmsg { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px; margin: 10px 0; font-size: 14px; line-height: 1.5; }
+.g-pbtn { display: grid; gap: 8px; }
+.g-pbtn .btn { min-height: 46px; }
+.req-box { border: 1.5px solid var(--st-doing); border-radius: 12px; padding: 12px; margin: 10px 0; background: var(--warm-soft); }
+.req-box .crew-row { border-top-color: rgba(0, 0, 0, .08); }
+.req-av { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; flex: none; font-size: 16px; }
