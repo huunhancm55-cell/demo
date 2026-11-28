@@ -162,11 +162,30 @@ const Sync = (() => {
     return n > 0;
   }
   // Vai trò của tài khoản đang đăng nhập (bảng members)
+  let meChecked = false;
   async function loadMe() {
+    try { await loadMe2(); } finally {
+      if (!meChecked) { meChecked = true; setTimeout(() => window.Gate && Gate.update(), 0); }
+    }
+  }
+  // Chưa là thành viên: gửi (một lần) yêu cầu truy cập để chủ thầu duyệt
+  async function requestAccess() {
+    const em = String(user.email || '').toLowerCase(), m = user.user_metadata || {};
+    if (!em) return 'pending';
+    await sb.from('access_requests').upsert({ email: em, name: m.full_name || m.name || '', avatar: m.avatar_url || m.picture || '' }, { onConflict: 'email', ignoreDuplicates: true });
+    const { data, error } = await sb.from('access_requests').select('status').eq('email', em);
+    return error ? 'pending' : ((data || [])[0] || {}).status || 'pending';
+  }
+  async function loadMe2() {
     const { data, error } = await sb.from('members').select('*').ilike('email', user.email || '');
     if (error) return; // máy chủ chưa nâng cấp: giữ như cũ
     const row = (data || []).find(r => String(r.email).toLowerCase() === String(user.email).toLowerCase());
-    let me = row ? { role: row.role || 'owner', name: row.name || '', projects: row.projects || [] } : { role: 'none', name: '', projects: [] };
+    let me = row ? { role: row.role || 'owner', name: row.name || '', projects: row.projects || [] } : { role: 'none', name: '', projects: [], request: await requestAccess().catch(() => 'pending') };
+    // Chủ thầu: đếm yêu cầu truy cập đang chờ duyệt (hiện nhắc trên trang Dự án)
+    if (me.role === 'owner') {
+      const r = await sb.from('access_requests').select('email', { count: 'exact', head: true }).eq('status', 'pending');
+      me.pending = r.error ? 0 : r.count || 0;
+    }
     // Đội thợ bị thu hồi quyền: vẫn là đội thợ nhưng không còn công trình nào (xóa dữ liệu công trình trên máy)
     if (!row && crew()) me = { role: 'crew', name: st.me.name, projects: [] };
     const before = JSON.stringify(st.me || null);
@@ -177,6 +196,7 @@ const Sync = (() => {
     if (crew()) { purge(); DB.set('kv', 'state', S).catch(() => {}); }
     if (wasCrew && !crew()) st.cursor = ''; // được nâng lên chủ thầu: tải đủ dữ liệu
     await persist(); safeRender();
+    setTimeout(() => window.Gate && Gate.update(), 0);
   }
 
   // Xóa trên máy chủ các ảnh/tệp không còn hồ sơ nào dùng
@@ -266,6 +286,7 @@ const Sync = (() => {
   function setUser(u) {
     if ((u?.id || '') === (user?.id || '')) return;
     user = u || null;
+    meChecked = false;
     setTimeout(() => window.Gate && Gate.update(), 0);
     clearInterval(tick);
     if (chan) { try { sb.removeChannel(chan); } catch (e) { /* bỏ qua */ } chan = null; }
@@ -443,6 +464,12 @@ const Sync = (() => {
     knownUser: () => !!st.uid,
     signedIn: () => !!user,
     role: () => st.me?.role || 'owner',
+    // Đã biết vai trò của tài khoản đang đăng nhập chưa (màn hình đăng nhập chờ để không lộ giao diện)
+    meKnown: () => !!st.me || meChecked,
+    pendingCount: () => (st.me?.role === 'owner' ? st.me.pending || 0 : 0),
+    checkNow: () => schedule(0),
+    request: () => st.me?.request || '',
+    async logout() { if (sb) await sb.auth.signOut().catch(() => {}); setUser(null); },
     me: () => ({ ...(st.me || { role: 'owner', name: '', projects: [] }), email: user?.email || '' }),
     client: () => (user ? sb : null),
     config: () => cfg(),

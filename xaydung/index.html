@@ -52,6 +52,11 @@
       <p id="gErr" class="g-err" role="alert"></p>
       <p class="g-hint">Chưa có tài khoản? Liên hệ chủ thầu để được cấp.</p>
     </div>
+    <div id="gPend" hidden>
+      <div class="g-acct g-pwho" id="gPendWho"></div>
+      <p class="g-pmsg" id="gPendMsg"></p>
+      <div class="g-pbtn"><button class="btn primary" type="button" id="gPendCheck">⟳ Kiểm tra lại</button><button class="btn" type="button" id="gPendOut">Đăng xuất</button></div>
+    </div>
     <form id="gNew" hidden>
       <label for="gNewPass">Mật khẩu mới (ít nhất 6 ký tự)</label><input id="gNewPass" type="password" autocomplete="new-password" required>
       <label for="gNewPass2">Nhập lại mật khẩu mới</label><input id="gNewPass2" type="password" autocomplete="new-password" required>

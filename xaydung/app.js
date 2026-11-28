@@ -281,7 +281,9 @@ const Gate = {
     g.querySelector('.g-load').hidden = mode !== 'loading';
     $('#gLogin').hidden = mode !== 'login';
     $('#gNew').hidden = mode !== 'recover';
-    $('.g-sub').textContent = mode === 'recover' ? 'Đặt mật khẩu mới cho tài khoản' : 'Đăng nhập để tiếp tục';
+    $('#gPend').hidden = mode !== 'pending';
+    $('.g-sub').textContent = mode === 'recover' ? 'Đặt mật khẩu mới cho tài khoản' : mode === 'pending' ? 'Tài khoản chưa được cấp quyền' : 'Đăng nhập để tiếp tục';
+    if (mode === 'pending') this.drawPending();
     if (mode === 'login') this.drawAccts();
     if (mode === 'recover') setTimeout(() => $('#gNewPass').focus(), 50);
   },
@@ -330,9 +332,22 @@ const Gate = {
       history.replaceState(null, '', location.pathname + location.search);
     }
   },
+  // Đăng nhập được nhưng chưa là thành viên: chờ chủ thầu duyệt
+  drawPending() {
+    const u = Sync.userInfo() || {}, rej = Sync.request() === 'rejected';
+    $('#gPendWho').innerHTML = `${u.avatar ? `<img src="${esc(u.avatar)}" alt="" referrerpolicy="no-referrer">` : `<span class="g-av">${esc((u.name || u.email || '?').trim().charAt(0).toUpperCase())}</span>`}<span class="grow"><b>${esc(u.name || (u.email || '').split('@')[0])}</b><small>${esc(u.email || '')}</small></span>`;
+    $('#gPendMsg').innerHTML = rej ? '<b class="neg">Yêu cầu truy cập đã bị từ chối.</b><br>Nếu nhầm, liên hệ chủ thầu để được cấp lại.'
+      : '<b>⏳ Đang chờ chủ thầu duyệt</b><br>Yêu cầu đã được gửi tới chủ thầu. Khi được duyệt, app tự mở — không cần đăng nhập lại.';
+  },
   update() {
     if (this.recovering && window.Sync && Sync.signedIn()) return this.show('recover');
-    if (!this.on() || Sync.signedIn()) return this.hide();
+    if (!this.on()) return this.hide();
+    if (Sync.signedIn()) {
+      this.remember();
+      if (!Sync.meKnown()) return this.show('loading');
+      if (Sync.role() === 'none') return this.show('pending');
+      return this.hide();
+    }
     if (navigator.onLine === false && Sync.knownUser()) return this.hide();
     this.show('login');
   },
@@ -341,6 +356,8 @@ window.Gate = Gate;
 document.addEventListener('click', async e => {
   const t = e.target, err = $('#gErr');
   if (!t.closest || !t.closest('#gate')) return;
+  if (t.id === 'gPendCheck') { t.disabled = true; t.textContent = 'Đang kiểm tra…'; Sync.checkNow(); setTimeout(() => { t.disabled = false; t.textContent = '⟳ Kiểm tra lại'; }, 2500); return; }
+  if (t.id === 'gPendOut') { await Sync.logout(); return; }
   const del = t.closest('[data-gdel]');
   if (del) { const a = Gate.accts(); a.splice(+del.dataset.gdel, 1); Gate.saveAccts(a); if (!a.length) Gate.other = false; return Gate.drawAccts(); }
   if (t.id === 'gSwitch') { Gate.other = !Gate.other; return Gate.drawAccts(); }
@@ -446,7 +463,7 @@ const VIEWS = {
       <div class="stat"><div class="k">Giá trị hợp đồng</div><div class="v num">${short(sum(S.projects, p => p.contract))}</div></div>
       <div class="stat"><div class="k">Đã thu</div><div class="v num pos">${short(thu)}</div></div>
       <div class="stat"><div class="k">Đã chi</div><div class="v num neg">${short(chi)}</div></div>
-    </div>${window.dueBannerHTML ? dueBannerHTML() : ''}<div class="list cols">${S.projects.map(p => {
+    </div>${window.Sync && Sync.pendingCount() ? `<div class="card mb due-card tap" data-act="tab" data-id="settings"><b>🔔 ${Sync.pendingCount()} tài khoản đang chờ duyệt</b> <span class="small muted">— vào Cài đặt để duyệt hoặc từ chối</span></div>` : ''}${window.dueBannerHTML ? dueBannerHTML() : ''}<div class="list cols">${S.projects.map(p => {
       const m = pMoney(p.id), base = p.budget || p.contract, pct = base ? Math.round(m.chi / base * 100) : 0;
       const nq = S.quotes.filter(q => q.projectId === p.id).length, nl = S.logs.filter(l => l.projectId === p.id).length;
       const cover = (p.photos || [])[0];

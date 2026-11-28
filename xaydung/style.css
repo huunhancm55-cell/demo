@@ -492,3 +492,11 @@ body.gated > *:not(#gate):not(#toast):not(script) { visibility: hidden; }
 .g-eye { position: absolute; right: 4px; top: 50%; transform: translateY(-50%); border: 0; background: none; width: 40px; height: 40px; opacity: .55; font-size: 18px; }
 .g-eye.on { opacity: 1; }
 .g-box #gErr { text-align: center; margin-top: 10px; }
+#gPend[hidden] { display: none; }
+.g-pwho { cursor: default; }
+.g-pmsg { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px; margin: 10px 0; font-size: 14px; line-height: 1.5; }
+.g-pbtn { display: grid; gap: 8px; }
+.g-pbtn .btn { min-height: 46px; }
+.req-box { border: 1.5px solid var(--st-doing); border-radius: 12px; padding: 12px; margin: 10px 0; background: var(--warm-soft); }
+.req-box .crew-row { border-top-color: rgba(0, 0, 0, .08); }
+.req-av { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; flex: none; font-size: 16px; }
