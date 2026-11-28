@@ -279,7 +279,10 @@ const Gate = {
     const g = $('#gate');
     g.hidden = false; document.body.classList.add('gated');
     g.querySelector('.g-load').hidden = mode !== 'loading';
-    g.querySelector('form').hidden = mode === 'loading';
+    $('#gForm').hidden = mode !== 'login';
+    $('#gNew').hidden = mode !== 'recover';
+    $('.g-sub').textContent = mode === 'recover' ? 'Đặt mật khẩu mới cho tài khoản' : 'Đăng nhập để tiếp tục';
+    if (mode === 'recover') setTimeout(() => $('#gNewPass').focus(), 50);
     if (mode === 'login') setTimeout(() => { const e = $('#gEmail'); if (e && !e.value) e.focus(); }, 50);
   },
   hide() { const g = $('#gate'); if (!g.hidden) { g.hidden = true; document.body.classList.remove('gated'); render(); } },
@@ -290,12 +293,38 @@ const Gate = {
     this.update();
   },
   update() {
+    if (this.recovering && window.Sync && Sync.signedIn()) return this.show('recover');
     if (!this.on() || Sync.signedIn()) return this.hide();
     if (navigator.onLine === false && Sync.knownUser()) return this.hide();
     this.show('login');
   },
 };
 window.Gate = Gate;
+document.addEventListener('click', async e => {
+  if (e.target.id !== 'gForgot') return;
+  const err = $('#gErr'), email = $('#gEmail').value.trim();
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { err.textContent = 'Nhập email đăng nhập vào ô Email rồi bấm "Quên mật khẩu?"'; return $('#gEmail').focus(); }
+  e.target.disabled = true; err.textContent = '';
+  const msg = await Sync.resetPassword(email);
+  e.target.disabled = false;
+  if (msg) { err.textContent = msg; return; }
+  err.innerHTML = `<span class="pos">Đã gửi email đặt lại mật khẩu tới <b>${esc(email)}</b>. Mở email, bấm link trong đó để đặt mật khẩu mới (xem cả mục Thư rác).</span>`;
+});
+document.addEventListener('submit', async e => {
+  if (e.target.id !== 'gNew') return;
+  e.preventDefault();
+  const p1 = $('#gNewPass').value, p2 = $('#gNewPass2').value, err = $('#gNewErr');
+  if (p1.length < 6) { err.textContent = 'Mật khẩu ít nhất 6 ký tự'; return; }
+  if (p1 !== p2) { err.textContent = 'Hai lần nhập không khớp'; return; }
+  const btn = $('button[type=submit]', e.target); btn.disabled = true; err.textContent = '';
+  const msg = await Sync.setPassword(p1);
+  btn.disabled = false;
+  if (msg) { err.textContent = msg; return; }
+  Gate.recovering = false; e.target.reset();
+  history.replaceState(null, '', location.pathname + location.search);
+  toast('Đã đổi mật khẩu — lần sau đăng nhập bằng mật khẩu mới');
+  Gate.update();
+});
 document.addEventListener('submit', async e => {
   if (e.target.id !== 'gForm') return;
   e.preventDefault();
