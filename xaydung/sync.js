@@ -289,7 +289,12 @@ const Sync = (() => {
       if (!window.supabase?.createClient) await loadScript(LIB);
       const c = cfg();
       sb = supabase.createClient(c.url, c.key, { auth: { persistSession: true, autoRefreshToken: true, storageKey: 'qlxd-auth' } });
-      sb.auth.onAuthStateChange((ev, session) => setTimeout(() => setUser(session?.user || null), 0));
+      sb.auth.onAuthStateChange((ev, session) => setTimeout(() => {
+        // Mở link "đặt lại mật khẩu" trong email: hiện ô nhập mật khẩu mới
+        if (ev === 'PASSWORD_RECOVERY' && window.Gate) Gate.recovering = true;
+        setUser(session?.user || null);
+        if (ev === 'PASSWORD_RECOVERY' && window.Gate) Gate.update();
+      }, 0));
       const { data } = await sb.auth.getSession();
       setUser(data?.session?.user || null);
     } catch (e) {
@@ -307,6 +312,20 @@ const Sync = (() => {
     try { const saved = await DB.get('kv', 'sync'); if (saved) st = { ...st, ...saved }; } catch (e) { /* bỏ qua */ }
     await connect();
     readyDone();
+  }
+  // Quên mật khẩu: Supabase gửi email có link quay lại app để đặt mật khẩu mới
+  async function resetPassword(email) {
+    if (!sb) { await connect(); if (!sb) return lastError || 'Không kết nối được máy chủ'; }
+    try {
+      const { error } = await sb.auth.resetPasswordForEmail(String(email).trim(), { redirectTo: location.href.split('#')[0].split('?')[0] });
+      return error ? (/rate|seconds/i.test(error.message) ? 'Vừa gửi rồi, đợi một lúc rồi thử lại' : errMsg(error)) : '';
+    } catch (err) { return errMsg(err); }
+  }
+  async function setPassword(password) {
+    try {
+      const { error } = await sb.auth.updateUser({ password });
+      return error ? (/different/i.test(error.message) ? 'Mật khẩu mới phải khác mật khẩu cũ' : errMsg(error)) : '';
+    } catch (err) { return errMsg(err); }
   }
   async function login(email, password) {
     if (!sb) { await connect(); if (!sb) return lastError || 'Không kết nối được máy chủ'; }
@@ -399,7 +418,7 @@ const Sync = (() => {
   });
 
   return {
-    init, card, fetchPhoto, fetchFile, login,
+    init, card, fetchPhoto, fetchFile, login, resetPassword, setPassword,
     ready: () => ready,
     isConfigured: () => configured(),
     knownUser: () => !!st.uid,

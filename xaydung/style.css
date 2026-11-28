@@ -469,3 +469,5 @@ body.gated { overflow: hidden; }
 .g-spin { width: 18px; height: 18px; border: 2.5px solid var(--line); border-top-color: var(--accent); border-radius: 50%; animation: gspin .8s linear infinite; }
 @keyframes gspin { to { transform: rotate(360deg); } }
 body.gated > *:not(#gate):not(#toast):not(script) { visibility: hidden; }
+.g-forgot { justify-self: center; }
+.g-err .pos { color: var(--green); }

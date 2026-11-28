@@ -42,7 +42,14 @@
       <label for="gPass">Mật khẩu</label><input id="gPass" type="password" autocomplete="current-password" required>
       <p id="gErr" class="g-err" role="alert"></p>
       <button class="btn primary" type="submit">Đăng nhập</button>
+      <button class="linkbtn g-forgot" type="button" id="gForgot">Quên mật khẩu?</button>
       <p class="g-hint">Chưa có tài khoản? Liên hệ chủ thầu để được cấp.</p>
+    </form>
+    <form id="gNew" hidden>
+      <label for="gNewPass">Mật khẩu mới (ít nhất 6 ký tự)</label><input id="gNewPass" type="password" autocomplete="new-password" required>
+      <label for="gNewPass2">Nhập lại mật khẩu mới</label><input id="gNewPass2" type="password" autocomplete="new-password" required>
+      <p id="gNewErr" class="g-err" role="alert"></p>
+      <button class="btn primary" type="submit">Lưu mật khẩu mới</button>
     </form>
   </div>
 </div>
