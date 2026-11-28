@@ -320,7 +320,11 @@ const VIEWS = {
         </div>
         <div class="row between wrap small mt"><span class="muted">Chi phí / ${p.budget ? 'ngân sách' : 'hợp đồng'}</span><span class="num"><b>${short(m.chi)}</b> / ${short(base)}${base ? ` (${pct}%)` : ''}</span></div>
         <div class="bar mt"><i class="${pct > 100 ? 'over' : ''}" style="width:${Math.min(pct, 100)}%"></i></div>
-        <div class="row between wrap small mt"><span class="muted">Đã thu <b class="pos num">${short(m.thu)}</b></span><span class="muted">Lãi tạm tính <b class="num ${p.contract - m.chi < 0 ? 'neg' : 'pos'}">${short(p.contract - m.chi)}</b></span></div>
+        <div class="row between wrap small mt"><span class="muted">Đã thu <b class="pos num">${short(m.thu)}</b></span>${(() => {
+          // Lãi = giá trị HĐ − chi phí dự kiến; chi phí dự kiến = ngân sách, hoặc số đã chi nếu đã vượt ngân sách
+          const cost = Math.max(m.chi, +p.budget || 0), lai = (+p.contract || 0) - cost;
+          return `<span class="muted" title="${p.budget ? 'Giá trị hợp đồng − ' + (m.chi > p.budget ? 'số đã chi (vượt ngân sách)' : 'ngân sách chi phí') : 'Giá trị hợp đồng − số đã chi'}">${p.budget ? 'Lãi dự kiến' : 'Lãi tạm tính'} <b class="num ${lai < 0 ? 'neg' : 'pos'}">${short(lai)}</b></span>`;
+        })()}</div>
         ${window.progressSummaryHTML ? progressSummaryHTML(p) : ''}
         <div class="row wrap mt" style="column-gap:16px">
           <button class="linkbtn" data-act="go" data-id="${p.id}" data-tab="quotes">Báo giá (${nq})</button>
