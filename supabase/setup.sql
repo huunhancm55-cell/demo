@@ -165,6 +165,28 @@ create policy "crew photos update" on storage.objects for update to authenticate
   using (bucket_id = 'files' and name like 'p/%' and public.is_crew())
   with check (bucket_id = 'files' and name like 'p/%' and public.is_crew());
 
+
+-- 6b. Giám sát được lưu Biên bản nghiệm thu vào Hồ sơ công trình được giao (không xem / xóa hồ sơ khác)
+create or replace function public.is_supervisor() returns boolean
+language sql stable security definer set search_path = public as $$
+  select exists (
+    select 1 from public.members
+    where lower(email) = lower(coalesce(auth.jwt() ->> 'email', '')) and role = 'supervisor'
+  );
+$$;
+revoke all on function public.is_supervisor() from public, anon;
+grant execute on function public.is_supervisor() to authenticated;
+
+drop policy if exists "supervisor minutes" on public.records;
+create policy "supervisor minutes" on public.records for all to authenticated
+  using (kind = 'docs' and data ->> 'type' = 'Biên bản nghiệm thu' and data ->> 'projectId' = any (public.crew_projects()) and public.is_supervisor())
+  with check (kind = 'docs' and not deleted and data ->> 'type' = 'Biên bản nghiệm thu' and data ->> 'projectId' = any (public.crew_projects()) and public.is_supervisor());
+
+-- Tệp biên bản (thư mục f/): giám sát chỉ được tải lên tệp mới, không đọc / sửa / xóa tệp có sẵn
+drop policy if exists "supervisor files add" on storage.objects;
+create policy "supervisor files add" on storage.objects for insert to authenticated
+  with check (bucket_id = 'files' and name like 'f/%' and public.is_supervisor());
+
 -- 7. YÊU CẦU TRUY CẬP + EMAIL BÁO CHỦ THẦU — giống file requests.sql
 -- 1. Bảng yêu cầu truy cập
 create table if not exists public.access_requests (
