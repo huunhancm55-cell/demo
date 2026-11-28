@@ -609,7 +609,7 @@ function openProgress(pid) {
       </div>
       <div class="fields mt"><div class="full"><label for="acNote">Ý kiến khác</label><textarea id="acNote" rows="2">${esc(a.note || '')}</textarea></div>
         <div class="full"><label>Ảnh hiện trường (in kèm biên bản, bắt buộc khi đạt)</label><div class="thumbs" id="acPh"></div><div class="mt"><button type="button" class="btn sm" id="acAddPh">📷 Thêm ảnh</button></div></div>
-        ${crew ? '' : '<div class="full"><label class="chk"><input type="checkbox" id="acDoc" checked> Lưu biên bản (Word) vào Hồ sơ dự án</label></div>'}</div>`;
+        ${crew && !sup ? '' : '<div class="full"><label class="chk"><input type="checkbox" id="acDoc" checked> Lưu biên bản (Word) vào Hồ sơ dự án</label></div>'}</div>`;
     drawItems(); drawPh();
     const read = () => { a.date = $p('#acDate').value || today(); a.a = $p('#acA').value.trim(); a.b = $p('#acB').value.trim(); a.note = $p('#acNote').value.trim(); a.fix = $p('#acFixT').value.trim(); a.due = $p('#acDue').value; a.result = result(); };
     $p('#pgBody').oninput = e => { const i = e.target.dataset.an; if (i !== undefined) a.items[+i].note = e.target.value; };

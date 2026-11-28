@@ -28,6 +28,8 @@ const Sync = (() => {
   const crew = () => st.me?.role === 'crew' || st.me?.role === 'supervisor';
   const crewPids = () => new Set(st.me?.projects || []);
   const crewOk = r => crewPids().has(r.projectId);
+  // Giám sát được lưu Biên bản nghiệm thu vào Hồ sơ của công trình được giao (máy chủ chặn loại hồ sơ khác)
+  const supDoc = r => st.me?.role === 'supervisor' && r && r.type === 'Biên bản nghiệm thu' && crewOk(r);
 
   function loadScript(src) {
     return new Promise((res, rej) => {
@@ -45,6 +47,7 @@ const Sync = (() => {
     const m = new Map();
     if (crew()) {
       for (const k of ['projects', 'tasks', 'logs']) for (const r of S[k]) m.set(r.id, [k, r]);
+      for (const r of S.docs) if (supDoc(r)) m.set(r.id, ['docs', r]);
       return m;
     }
     for (const k of KINDS) for (const r of S[k]) m.set(r.id, [k, r]);
@@ -55,17 +58,17 @@ const Sync = (() => {
     const cur = current(), up = [], del = [];
     const c = crew();
     for (const [id, [k, r]] of cur) {
-      if (c && (k === 'projects' || !crewOk(r))) continue; // đội thợ không sửa công trình, không ghi ngoài công trình được giao
+      if (c && (k === 'projects' || !crewOk(r) || (k === 'docs' && !supDoc(r)))) continue; // đội thợ không sửa công trình, không ghi ngoài công trình được giao
       const j = JSON.stringify(r);
       if (st.synced[id]?.j !== j) up.push({ id, kind: k, data: r, deleted: false, _j: j });
     }
-    for (const id in st.synced) if (!cur.has(id) && !(c && st.synced[id].k === 'projects')) del.push({ id, kind: st.synced[id].k, data: null, deleted: true });
+    for (const id in st.synced) if (!cur.has(id) && !(c && (st.synced[id].k === 'projects' || st.synced[id].k === 'docs'))) del.push({ id, kind: st.synced[id].k, data: null, deleted: true });
     return up.concat(del);
   }
   const blobPaths = rec => [...(rec?.photos || []).map(id => 'p/' + id), ...(rec?.files || []).map(f => 'f/' + f.id)];
   function referencedBlobs() {
     const s = new Set();
-    if (crew()) { for (const l of [...S.logs, ...S.tasks].filter(crewOk)) blobPaths(l).forEach(p => s.add(p)); return s; }
+    if (crew()) { for (const l of [...S.logs, ...S.tasks].filter(crewOk)) blobPaths(l).forEach(p => s.add(p)); for (const d of S.docs.filter(supDoc)) blobPaths(d).forEach(p => s.add(p)); return s; }
     for (const l of [...S.logs, ...S.projects, ...S.tasks, ...S.changes]) blobPaths(l).forEach(p => s.add(p));
     for (const d of S.docs) blobPaths(d).forEach(p => s.add(p));
     return s;
@@ -85,8 +88,9 @@ const Sync = (() => {
       if (path[0] === 'p') { const src = await DB.get('photos', id).catch(() => null); if (src) blob = await (await fetch(src)).blob(); }
       else blob = await DB.get('files', id).catch(() => null);
       if (!blob) continue; // tệp của máy khác, máy này chưa tải về
-      const { error } = await sb.storage.from(BUCKET).upload(path, await blob.arrayBuffer(), { upsert: true, contentType: blob.type || 'application/octet-stream' });
-      if (error) throw error;
+      // Đội thợ / giám sát chỉ có quyền tải lên tệp mới (không ghi đè) — tệp đã có thì coi như xong
+      const { error } = await sb.storage.from(BUCKET).upload(path, await blob.arrayBuffer(), { upsert: !crew(), contentType: blob.type || 'application/octet-stream' });
+      if (error && !(crew() && /exist|duplicate|409/i.test(String(error.message || error.statusCode || error.error)))) throw error;
       known.add(path); st.blobs = [...known];
     }
     const rows = dirtyList();
@@ -157,7 +161,12 @@ const Sync = (() => {
       for (const r of drop) { delete st.synced[r.id]; (r.photos || []).forEach(p => DB.del('photos', p)); }
       S[k] = S[k].filter(r => keepRec(k, r));
     }
-    for (const k of ['quotes', 'costs', 'docs', 'changes']) if (S[k].length) { n += S[k].length; S[k].forEach(r => delete st.synced[r.id]); S[k] = []; }
+    for (const k of ['quotes', 'costs', 'docs', 'changes']) {
+      const drop = S[k].filter(r => !(k === 'docs' && supDoc(r)));
+      if (!drop.length) continue;
+      n += drop.length; drop.forEach(r => delete st.synced[r.id]);
+      S[k] = S[k].filter(r => k === 'docs' && supDoc(r));
+    }
     if (S.ui.pid && !ok.has(S.ui.pid)) S.ui.pid = '';
     return n > 0;
   }
