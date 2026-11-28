@@ -105,14 +105,14 @@ create or replace function public.is_crew() returns boolean
 language sql stable security definer set search_path = public as $$
   select exists (
     select 1 from public.members
-    where lower(email) = lower(coalesce(auth.jwt() ->> 'email', '')) and role = 'crew'
+    where lower(email) = lower(coalesce(auth.jwt() ->> 'email', '')) and role in ('crew', 'supervisor')
   );
 $$;
 create or replace function public.crew_projects() returns text[]
 language sql stable security definer set search_path = public as $$
   select coalesce((
     select projects from public.members
-    where lower(email) = lower(coalesce(auth.jwt() ->> 'email', '')) and role = 'crew'
+    where lower(email) = lower(coalesce(auth.jwt() ->> 'email', '')) and role in ('crew', 'supervisor')
   ), '{}'::text[]);
 $$;
 revoke all on function public.is_crew() from public, anon;

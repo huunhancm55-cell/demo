@@ -25,7 +25,7 @@ const Sync = (() => {
   const configured = () => { const c = cfg(); return !!(c.url && c.key); };
   const persist = () => DB.set('kv', 'sync', st).catch(() => {});
   // Vai trò: chủ thầu (owner) toàn quyền; đội thợ (crew) chỉ công trình được giao, chỉ mốc tiến độ + nhật ký
-  const crew = () => st.me?.role === 'crew';
+  const crew = () => st.me?.role === 'crew' || st.me?.role === 'supervisor';
   const crewPids = () => new Set(st.me?.projects || []);
   const crewOk = r => crewPids().has(r.projectId);
 
@@ -265,6 +265,7 @@ const Sync = (() => {
   function setUser(u) {
     if ((u?.id || '') === (user?.id || '')) return;
     user = u || null;
+    setTimeout(() => window.Gate && Gate.update(), 0);
     clearInterval(tick);
     if (chan) { try { sb.removeChannel(chan); } catch (e) { /* bỏ qua */ } chan = null; }
     if (user) {
@@ -299,9 +300,21 @@ const Sync = (() => {
     if (S.ui.tab === 'settings') safeRender();
   }
 
+  // Màn hình đăng nhập chờ tới khi biết đã có phiên đăng nhập hay chưa
+  let readyDone;
+  const ready = new Promise(r => { readyDone = r; });
   async function init() {
     try { const saved = await DB.get('kv', 'sync'); if (saved) st = { ...st, ...saved }; } catch (e) { /* bỏ qua */ }
     await connect();
+    readyDone();
+  }
+  async function login(email, password) {
+    if (!sb) { await connect(); if (!sb) return lastError || 'Không kết nối được máy chủ'; }
+    try {
+      const { data, error } = await sb.auth.signInWithPassword({ email: String(email).trim(), password });
+      if (error) return /invalid/i.test(error.message) ? 'Sai email hoặc mật khẩu' : /confirm/i.test(error.message) ? 'Email chưa được xác nhận — mở hộp thư để bấm link xác nhận' : errMsg(error);
+      setUser(data.user); return '';
+    } catch (err) { return errMsg(err); }
   }
   addEventListener('online', () => { if (!sb) connect(); else schedule(0); });
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && user) schedule(0); });
@@ -386,7 +399,10 @@ const Sync = (() => {
   });
 
   return {
-    init, card, fetchPhoto, fetchFile,
+    init, card, fetchPhoto, fetchFile, login,
+    ready: () => ready,
+    isConfigured: () => configured(),
+    knownUser: () => !!st.uid,
     signedIn: () => !!user,
     role: () => st.me?.role || 'owner',
     me: () => ({ ...(st.me || { role: 'owner', name: '', projects: [] }), email: user?.email || '' }),

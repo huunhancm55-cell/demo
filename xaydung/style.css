@@ -449,3 +449,23 @@ a.btn { text-decoration: none; color: inherit; display: inline-flex; align-items
 .ps-row input { padding: 7px 8px; font-size: 14px; min-width: 0; }
 .ps-row .ps-paid { grid-column: 1 / -1; margin-top: -3px; }
 @media (max-width: 560px) { .ps-row { grid-template-columns: 62px 14px minmax(0, 1fr) 30px; padding-bottom: 6px; border-bottom: 1px dashed var(--line); } .ps-row [data-k=label] { grid-column: 1 / -1; } }
+
+/* Màn hình đăng nhập khi mở app */
+#gate { position: fixed; inset: 0; z-index: 100; background: var(--bg); display: flex; align-items: center; justify-content: center; padding: calc(24px + var(--sat)) 20px calc(24px + var(--sab)); overflow-y: auto; }
+#gate[hidden] { display: none; }
+body.gated { overflow: hidden; }
+.g-box { width: 100%; max-width: 380px; text-align: center; }
+.g-logo { width: 150px; height: auto; background: #fff; border-radius: 18px; padding: 10px 14px; box-shadow: 0 4px 18px rgba(0, 0, 0, .08); }
+.g-box h1 { font-size: 22px; margin-top: 18px; }
+.g-sub { color: var(--muted); margin: 4px 0 22px; }
+.g-box form { text-align: left; display: grid; gap: 6px; background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px; }
+.g-box form[hidden], .g-load[hidden] { display: none; }
+.g-box label { font-size: 13px; font-weight: 600; color: var(--muted); margin-top: 6px; }
+.g-box input { font-size: 16px; }
+.g-box .btn { margin-top: 8px; min-height: 48px; font-size: 16px; }
+.g-err { color: var(--red); font-size: 13.5px; min-height: 18px; margin: 2px 0 0; }
+.g-hint { font-size: 12.5px; color: var(--muted); text-align: center; margin-top: 6px; }
+.g-load { color: var(--muted); display: flex; align-items: center; justify-content: center; gap: 10px; }
+.g-spin { width: 18px; height: 18px; border: 2.5px solid var(--line); border-top-color: var(--accent); border-radius: 50%; animation: gspin .8s linear infinite; }
+@keyframes gspin { to { transform: rotate(360deg); } }
+body.gated > *:not(#gate):not(#toast):not(script) { visibility: hidden; }

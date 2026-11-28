@@ -31,6 +31,21 @@
 <div id="viewer" hidden data-act="closeViewer"><img alt="Ảnh nhật ký"></div>
 <div id="toast" role="status" aria-live="polite"></div>
 <div id="print"></div>
+<div id="gate" hidden>
+  <div class="g-box">
+    <img src="logo.png" alt="Hữu Nhân – Thiết kế &amp; Xây dựng" class="g-logo">
+    <h1>Quản lý công trình</h1>
+    <p class="g-sub">Đăng nhập để tiếp tục</p>
+    <div class="g-load"><span class="g-spin"></span> Đang mở…</div>
+    <form id="gForm" hidden>
+      <label for="gEmail">Email</label><input id="gEmail" type="email" autocomplete="username" autocapitalize="off" autocorrect="off" spellcheck="false" required>
+      <label for="gPass">Mật khẩu</label><input id="gPass" type="password" autocomplete="current-password" required>
+      <p id="gErr" class="g-err" role="alert"></p>
+      <button class="btn primary" type="submit">Đăng nhập</button>
+      <p class="g-hint">Chưa có tài khoản? Liên hệ chủ thầu để được cấp.</p>
+    </form>
+  </div>
+</div>
 <script src="config.js"></script>
 <script src="app.js"></script>
 <script src="sync.js"></script>
