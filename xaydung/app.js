@@ -261,7 +261,53 @@ const badge = ([t, c]) => `<span class="badge ${c}">${t}</span>`;
 // ---------- Khung giao diện ----------
 // Đội thợ: chỉ thấy Dự án (tiến độ), Nhật ký và Cài đặt; không thấy tiền
 const CREW_TABS = ['projects', 'logs', 'settings'];
-const isCrew = () => !!(window.Sync && Sync.role && Sync.role() === 'crew');
+const isCrew = () => !!(window.Sync && Sync.role && ['crew', 'supervisor'].includes(Sync.role()));
+const isSup = () => !!(window.Sync && Sync.role && Sync.role() === 'supervisor');
+const ROLE_NAME = { owner: 'Chủ thầu', supervisor: 'Giám sát', crew: 'Cai thợ / đội thợ' };
+
+// ---------- Màn hình đăng nhập khi mở app ----------
+// Có máy chủ đồng bộ thì phải đăng nhập mới vào app. Mất mạng mà máy này đã từng đăng nhập thì vẫn vào được.
+// (Máy thử nghiệm localhost bỏ qua, trừ khi localStorage qlxd-gate = 1)
+const Gate = {
+  on() {
+    if (!window.Sync || !Sync.isConfigured()) return false;
+    let force = false;
+    try { force = localStorage.getItem('qlxd-gate') === '1'; } catch (e) { /* bỏ qua */ }
+    return force || !/^(localhost|127\.0\.0\.1)$/.test(location.hostname);
+  },
+  show(mode) {
+    const g = $('#gate');
+    g.hidden = false; document.body.classList.add('gated');
+    g.querySelector('.g-load').hidden = mode !== 'loading';
+    g.querySelector('form').hidden = mode === 'loading';
+    if (mode === 'login') setTimeout(() => { const e = $('#gEmail'); if (e && !e.value) e.focus(); }, 50);
+  },
+  hide() { const g = $('#gate'); if (!g.hidden) { g.hidden = true; document.body.classList.remove('gated'); render(); } },
+  async start() {
+    if (!this.on()) return this.hide();
+    this.show('loading');
+    await Promise.race([Sync.ready(), new Promise(r => setTimeout(r, 9000))]);
+    this.update();
+  },
+  update() {
+    if (!this.on() || Sync.signedIn()) return this.hide();
+    if (navigator.onLine === false && Sync.knownUser()) return this.hide();
+    this.show('login');
+  },
+};
+window.Gate = Gate;
+document.addEventListener('submit', async e => {
+  if (e.target.id !== 'gForm') return;
+  e.preventDefault();
+  const btn = $('button[type=submit]', e.target), err = $('#gErr');
+  btn.disabled = true; btn.textContent = 'Đang đăng nhập…'; err.textContent = '';
+  const msg = await Sync.login($('#gEmail').value, $('#gPass').value);
+  btn.disabled = false; btn.textContent = 'Đăng nhập';
+  if (msg) { err.textContent = msg; return; }
+  $('#gPass').value = '';
+  toast('Đã đăng nhập — đang đồng bộ');
+  Gate.update();
+});
 function toast(msg) {
   const t = $('#toast'); t.textContent = msg; t.classList.add('show');
   clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.remove('show'), 2400);
@@ -270,7 +316,7 @@ function render() {
   const crew = isCrew(), tabs = crew ? TABS.filter(t => CREW_TABS.includes(t[0])) : TABS;
   if (!tabs.some(t => t[0] === S.ui.tab)) S.ui.tab = 'projects';
   const tab = S.ui.tab;
-  $('#nav').innerHTML = `<div class="brand"><img src="icon.svg" alt=""><span><b>HỮU NHÂN</b><small>${crew ? 'Tài khoản đội thợ' : 'Quản lý công trình'}</small></span></div>` + tabs.map(([k, t, ic]) =>
+  $('#nav').innerHTML = `<div class="brand"><img src="icon.svg" alt=""><span><b>HỮU NHÂN</b><small>${crew ? (isSup() ? 'Tài khoản giám sát' : 'Tài khoản cai thợ') : 'Quản lý công trình'}</small></span></div>` + tabs.map(([k, t, ic]) =>
     `<button data-act="tab" data-id="${k}" class="${k === tab ? 'on' : ''}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${ic}</svg>${t}</button>`).join('');
   $('#title').textContent = TABS.find(t => t[0] === tab)[1];
   const pf = $('#pfilter');
@@ -411,8 +457,8 @@ const VIEWS = {
     if (isCrew()) {
       const me = Sync.me();
       return `<div class="list">${Sync.card()}
-        <div class="card"><div class="bold mb">👷 Tài khoản đội thợ</div><p class="small">${esc(me.name || me.email)}${me.name ? ` <span class="muted">· ${esc(me.email)}</span>` : ''}</p>
-          <p class="small muted mt">Được giao ${S.projects.length} công trình. Đội thợ đánh dấu xong mốc (kèm ảnh) và ghi nhật ký; các mục báo giá, chi phí, hồ sơ do chủ thầu quản lý.</p></div>
+        <div class="card"><div class="bold mb">👷 Tài khoản ${isSup() ? 'giám sát' : 'cai thợ / đội thợ'}</div><p class="small">${esc(me.name || me.email)}${me.name ? ` <span class="muted">· ${esc(me.email)}</span>` : ''}</p>
+          <p class="small muted mt">Được giao ${S.projects.length} công trình. ${isSup() ? 'Giám sát cập nhật tiến độ, nghiệm thu, in biên bản, ghi nhật ký và lập báo cáo tuần' : 'Cai thợ đánh dấu xong mốc (kèm ảnh) và ghi nhật ký'}; báo giá, chi phí, hồ sơ do chủ thầu quản lý.</p></div>
         <div class="card"><div class="bold mb">Cài đặt ứng dụng</div><p class="small"><b>iPhone:</b> mở bằng Safari → Chia sẻ → "Thêm vào Màn hình chính".<br><b>Android:</b> Chrome → menu ⋮ → "Cài đặt ứng dụng".</p></div></div>`;
     }
     return `<div class="list">
@@ -1020,7 +1066,7 @@ window.addEventListener('afterprint', () => { $('#print').innerHTML = ''; });
   } catch (e) { /* bắt đầu với dữ liệu trống */ }
   if (S.ui.pid && !proj(S.ui.pid)) S.ui.pid = '';
   render();
-  if (window.Sync) Sync.init();
+  if (window.Sync) { Sync.init(); Gate.start(); }
   navigator.storage?.persist?.().catch(() => {});
   if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js').catch(() => {});
 })();

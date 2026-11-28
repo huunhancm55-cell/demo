@@ -337,11 +337,11 @@ function openProgress(pid) {
   el.classList.add('xwide');
   const $p = s => $(s, el);
   let filter = 'all', openGroups = null, payOpen = false, tab = 'plan', repWeek = weekStartOf(today());
-  const crew = isCrew();
+  const crew = isCrew(), sup = isSup(), SUP_TABS = ['plan', 'acc', 'rep'];
   const tabsHTML = () => {
-    if (crew) return '';
+    if (crew && !sup) return '';
     const w = accWaiting(pid).length, n = changesOf(pid).length;
-    return `<div class="pg-tabs" role="tablist">${[['plan', '📅 Tiến độ'], ['acc', `📋 Nghiệm thu${w ? ` <span class="badge orange">${w}</span>` : ''}`], ['chg', `➕ Phát sinh${n ? ` <span class="badge">${n}</span>` : ''}`], ['rep', '📰 Báo cáo tuần']]
+    return `<div class="pg-tabs" role="tablist">${[['plan', '📅 Tiến độ'], ['acc', `📋 Nghiệm thu${w ? ` <span class="badge orange">${w}</span>` : ''}`], ['chg', `➕ Phát sinh${n ? ` <span class="badge">${n}</span>` : ''}`], ['rep', '📰 Báo cáo tuần']].filter(([k]) => !sup || SUP_TABS.includes(k))
       .map(([k, v]) => `<button class="${tab === k ? 'on' : ''}" type="button" role="tab" aria-selected="${tab === k}" data-tab="${k}">${v}</button>`).join('')}</div>`;
   };
   if (!S.ui.pgView) S.ui.pgView = innerWidth >= 900 ? 'chart' : 'list';
@@ -555,7 +555,7 @@ function openProgress(pid) {
     const newDue = dueStages(pid).filter(s => !dueBefore.has(s.i));
     toast(newDue.length ? `💰 Đến hạn thu ${newDue.map(s => `${s.nm}: ${money(s.amount)}`).join(', ')} — bấm "Đã thu" khi nhận tiền` : list.length > 1 ? `Đã xong ${list.length} mốc` : 'Đã đánh dấu xong');
     // Mốc cần nghiệm thu công việc khuất: mở ngay phiếu nghiệm thu
-    if (list.length === 1 && accState(last) === 'wait') { if (crew) toast('Đã xong — mốc này cần chủ thầu nghiệm thu'); else drawAcc(last.id, true); }
+    if (list.length === 1 && accState(last) === 'wait') { if (crew && !sup) toast('Đã xong — mốc này cần giám sát / chủ thầu nghiệm thu'); else drawAcc(last.id, true); }
   };
 
   // ---- Nghiệm thu ----
@@ -581,7 +581,7 @@ function openProgress(pid) {
     const t = S.tasks.find(x => x.id === id);
     if (!t) return draw();
     const p = proj(pid), { aDef, bDef } = partyLines(p);
-    const a = t.acc ? JSON.parse(JSON.stringify(t.acc)) : { date: today(), a: aDef, b: bDef, items: checklistFor(t).map(x => ({ t: x, ok: null, note: '' })), note: '', fix: '', due: '' };
+    const a = t.acc ? JSON.parse(JSON.stringify(t.acc)) : { date: today(), a: aDef, b: bDef || (crew ? Sync.me().name : ''), items: checklistFor(t).map(x => ({ t: x, ok: null, note: '' })), note: '', fix: '', due: '' };
     const photos = [...(t.photos || [])], added = [];
     const result = () => (a.items.some(x => x.ok === false) ? 'fail' : a.items.every(x => x.ok === true) ? 'pass' : '');
     const drawItems = () => {
@@ -609,7 +609,7 @@ function openProgress(pid) {
       </div>
       <div class="fields mt"><div class="full"><label for="acNote">Ý kiến khác</label><textarea id="acNote" rows="2">${esc(a.note || '')}</textarea></div>
         <div class="full"><label>Ảnh hiện trường (in kèm biên bản, bắt buộc khi đạt)</label><div class="thumbs" id="acPh"></div><div class="mt"><button type="button" class="btn sm" id="acAddPh">📷 Thêm ảnh</button></div></div>
-        <div class="full"><label class="chk"><input type="checkbox" id="acDoc" checked> Lưu biên bản (Word) vào Hồ sơ dự án</label></div></div>`;
+        ${crew ? '' : '<div class="full"><label class="chk"><input type="checkbox" id="acDoc" checked> Lưu biên bản (Word) vào Hồ sơ dự án</label></div>'}</div>`;
     drawItems(); drawPh();
     const read = () => { a.date = $p('#acDate').value || today(); a.a = $p('#acA').value.trim(); a.b = $p('#acB').value.trim(); a.note = $p('#acNote').value.trim(); a.fix = $p('#acFixT').value.trim(); a.due = $p('#acDue').value; a.result = result(); };
     $p('#pgBody').oninput = e => { const i = e.target.dataset.an; if (i !== undefined) a.items[+i].note = e.target.value; };
@@ -641,7 +641,7 @@ function openProgress(pid) {
       if (a.result === 'pass' && !t.done) { t.done = true; t.doneDate = a.date; }
       if (a.result === 'fail') { t.done = false; t.doneDate = ''; }
       S.settings.lastAccB = a.b;
-      if ($p('#acDoc').checked) {
+      if ($p('#acDoc') && $p('#acDoc').checked) {
         await saveDocFile({ pid, type: 'Biên bản nghiệm thu', title: `Biên bản nghiệm thu – ${t.name}`, no: accCode(a.no), date: a.date, party: a.a, amount: 0,
           note: a.result === 'pass' ? 'Đạt' : 'Không đạt: ' + a.fix, html: acceptanceHTML(t, false), name: `Bien ban nghiem thu ${accCode(a.no)} - ${t.name}` });
       }
@@ -721,13 +721,13 @@ function openProgress(pid) {
   const drawReport = () => {
     const p = proj(pid), r = weekReport(pid, repWeek), link = shareLink(p), signed = window.Sync && Sync.signedIn();
     const thisWeek = weekStartOf(today());
-    $p('#pgBody').innerHTML = tabsHTML() + `<div class="card mb share-card"><div class="row between wrap" style="gap:8px"><b>🔗 Link xem tiến độ cho chủ nhà</b>${link ? '<span class="badge green">Đang bật</span>' : ''}</div>
+    $p('#pgBody').innerHTML = tabsHTML() + (crew ? '' : `<div class="card mb share-card"><div class="row between wrap" style="gap:8px"><b>🔗 Link xem tiến độ cho chủ nhà</b>${link ? '<span class="badge green">Đang bật</span>' : ''}</div>
         <p class="small muted mt">Chủ nhà mở link trên điện thoại để xem % hoàn thành, các mốc, nghiệm thu, nhật ký và ảnh công trình. <b>Không hiện số tiền.</b> Link tự cập nhật khi có thay đổi.</p>
         ${!signed ? '<p class="small warn mt">Cần đăng nhập đồng bộ trong Cài đặt để tạo link.</p>'
           : link ? `<div class="row mt" style="gap:6px"><input id="shLink" readonly value="${esc(link)}" aria-label="Link cho chủ nhà" class="grow"><button class="btn sm" type="button" id="shCopy">Sao chép</button></div>
             <div class="btns mt"><a class="btn sm" href="${esc(link)}" target="_blank" rel="noopener">Mở xem thử</a><button class="btn sm" type="button" id="shNow">⟳ Cập nhật ngay</button><button class="btn sm danger" type="button" id="shOff">Tắt link</button></div>
             <p class="small muted mt" id="shAt">${p.share.at ? 'Cập nhật lần cuối: ' + new Date(p.share.at).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' }) : ''}</p>`
-          : '<div class="btns mt"><button class="btn primary sm" type="button" id="shOn">Tạo link cho chủ nhà</button></div>'}</div>
+          : '<div class="btns mt"><button class="btn primary sm" type="button" id="shOn">Tạo link cho chủ nhà</button></div>'}</div>`) + `
       <div class="row between wrap mb" style="gap:8px"><div class="btns" style="align-items:center"><button class="btn sm" type="button" id="wkPrev" aria-label="Tuần trước">‹</button><b>Tuần ${ddmm(r.from)} – ${fdate(r.to)}</b><button class="btn sm" type="button" id="wkNext" aria-label="Tuần sau"${repWeek >= thisWeek ? ' disabled' : ''}>›</button></div>
         <div class="btns"><button class="btn sm" type="button" id="wkCopy">📋 Sao chép tin nhắn Zalo</button><button class="btn sm" type="button" id="wkPrint">🖨 In / PDF</button></div></div>
       <div class="paper wr-paper" id="wkDoc"></div>`;
@@ -924,7 +924,7 @@ function openProgress(pid) {
           <select id="pgPsLink" class="mt"${t.ps ? '' : ' hidden'} aria-label="Phiếu phát sinh"><option value="1">Chưa gắn phiếu phát sinh</option>${changesOf(pid).map(c => `<option value="${c.id}"${t.ps === c.id ? ' selected' : ''}>${esc(c.no)} – ${esc(c.title || '')}</option>`).join('')}</select></div>`}
         <div class="full"><label for="pgNote">Ghi chú</label><textarea id="pgNote" rows="2">${esc(t.note || '')}</textarea></div>
         <div class="full"><label>Ảnh hiện trường (bắt buộc khi đã xong)</label><div class="thumbs" id="pgPh"></div><div class="mt"><button type="button" class="btn sm" id="pgAddPh">📷 Thêm ảnh</button></div></div>
-        ${orig && !crew ? `<div class="full card row between wrap" style="gap:8px"><span class="small">📋 Nghiệm thu: ${ACC_BADGE(orig) || '<span class="muted">không bắt buộc</span>'}${orig.acc ? ` · ${accCode(orig.acc.no)}` : ''}</span><button type="button" class="btn sm" data-acc="${orig.id}">${orig.acc ? 'Xem / in biên bản' : 'Nghiệm thu mốc này'}</button></div>` : ''}
+        ${orig && (!crew || sup) ? `<div class="full card row between wrap" style="gap:8px"><span class="small">📋 Nghiệm thu: ${ACC_BADGE(orig) || '<span class="muted">không bắt buộc</span>'}${orig.acc ? ` · ${accCode(orig.acc.no)}` : ''}</span><button type="button" class="btn sm" data-acc="${orig.id}">${orig.acc ? 'Xem / in biên bản' : 'Nghiệm thu mốc này'}</button></div>` : ''}
       </div>`;
     if (crew) { ['#pgN', '#pgG', '#pgS', '#pgD'].forEach(sel => { $p(sel).readOnly = true; }); }
     const drawPh = () => {
@@ -972,7 +972,7 @@ function openProgress(pid) {
   };
 
   const draw = () => {
-    if (crew) tab = 'plan';
+    if (crew && !(sup && SUP_TABS.includes(tab))) tab = 'plan';
     const b = $p('#pgBody'); b.onchange = b.oninput = b.onclick = null;
     if (tab === 'acc') return drawAccList();
     if (tab === 'chg') return drawChanges();

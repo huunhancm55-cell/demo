@@ -1,6 +1,6 @@
 -- Tài khoản đội thợ (chạy MỘT LẦN trong Supabase → SQL Editor → New query → Run; chạy lại không sao).
 -- Chủ thầu (role = 'owner', mặc định cho các thành viên đang có) vẫn toàn quyền như cũ.
--- Đội thợ (role = 'crew') chỉ thấy các công trình được giao: tên, địa chỉ, tiến độ, nhật ký, ảnh.
+-- Cai thợ / đội thợ (role = 'crew') và giám sát (role = 'supervisor') chỉ thấy các công trình được giao: tên, địa chỉ, tiến độ, nhật ký, ảnh.
 -- Không thấy báo giá, chi phí, hợp đồng, hồ sơ, phát sinh, giá trị công trình. Máy chủ chặn, không chỉ ẩn trên app.
 
 -- 1. Thêm vai trò, tên và danh sách công trình được giao
@@ -20,14 +20,14 @@ create or replace function public.is_crew() returns boolean
 language sql stable security definer set search_path = public as $$
   select exists (
     select 1 from public.members
-    where lower(email) = lower(coalesce(auth.jwt() ->> 'email', '')) and role = 'crew'
+    where lower(email) = lower(coalesce(auth.jwt() ->> 'email', '')) and role in ('crew', 'supervisor')
   );
 $$;
 create or replace function public.crew_projects() returns text[]
 language sql stable security definer set search_path = public as $$
   select coalesce((
     select projects from public.members
-    where lower(email) = lower(coalesce(auth.jwt() ->> 'email', '')) and role = 'crew'
+    where lower(email) = lower(coalesce(auth.jwt() ->> 'email', '')) and role in ('crew', 'supervisor')
   ), '{}'::text[]);
 $$;
 revoke all on function public.is_crew() from public, anon;
