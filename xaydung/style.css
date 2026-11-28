@@ -445,3 +445,7 @@ a.btn { text-decoration: none; color: inherit; display: inline-flex; align-items
 .pg-sr.off input:not([type=checkbox]) { opacity: .45; text-decoration: line-through; }
 .badge.ps { background: var(--warm-soft); color: var(--warm); }
 .pg-sd { grid-column: 2 / -1; margin-top: -2px; }
+.ps-row { display: grid; grid-template-columns: minmax(0, 1fr) 62px 14px 128px 30px; gap: 6px; align-items: center; margin-bottom: 6px; }
+.ps-row input { padding: 7px 8px; font-size: 14px; min-width: 0; }
+.ps-row .ps-paid { grid-column: 1 / -1; margin-top: -3px; }
+@media (max-width: 560px) { .ps-row { grid-template-columns: 62px 14px minmax(0, 1fr) 30px; padding-bottom: 6px; border-bottom: 1px dashed var(--line); } .ps-row [data-k=label] { grid-column: 1 / -1; } }

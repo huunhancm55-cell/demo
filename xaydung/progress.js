@@ -140,6 +140,27 @@ function parsePlanText(text) {
   }
   return out;
 }
+// Lịch thanh toán dán từ hợp đồng: "Tên đợt – điều kiện | 15% | 384.192.282" (dấu | hoặc tab)
+function parsePayText(text) {
+  const out = [];
+  for (let line of String(text || '').split(/\r?\n/)) {
+    line = line.trim();
+    if (!line || /^(tổng|cộng)\b/i.test(line)) continue;
+    const parts = line.split(/\s*\|\s*|\t+/).map(x => x.trim()).filter(Boolean);
+    let pct = 0, amount = 0;
+    const rest = [];
+    for (const x of parts) {
+      const m = /^(\d+(?:[.,]\d+)?)\s*%/.exec(x);
+      if (m && !pct) pct = dec(m[1]);
+      else if (/^\d{1,3}([.,]\d{3})+(\s*(đ|đồng|₫))?$|^\d{5,}(\s*(đ|đồng|₫))?$/.test(x)) amount = num(x);
+      else rest.push(x);
+    }
+    const label = rest.join(' – ').replace(/\s+/g, ' ');
+    if (!label || (!pct && !amount)) continue;
+    out.push({ label, pct, amount, ...(/bảo hành/i.test(label) ? { link: 'manual' } : {}) });
+  }
+  return out;
+}
 // Hạng mục trong báo giá / hợp đồng → mốc tiến độ (nhóm hạng mục → giai đoạn)
 function planFromQuote(q) {
   const out = [];
@@ -161,7 +182,7 @@ function progressSummaryHTML(p) {
     <div class="row between small"><span class="muted">Tiến độ</span><span><b>${st.pct}%</b> · ${st.done}/${list.length} mốc${st.finish ? ` · dự kiến xong ${fdate(st.finish)}` : ''}</span></div>
     <div class="bar mt"><i class="ok" style="width:${st.pct}%"></i></div>
     <div class="row between wrap small mt" style="gap:6px"><span class="clip grow">${st.next ? `Tiếp theo: <b>${esc(st.next.name)}</b> · ${ddmm(st.next.start)}–${ddmm(taskEnd(st.next))}` : '<b class="pos">Đã xong tất cả các mốc</b>'}</span>${st.late ? `<span class="badge red">Trễ ${st.lateDays} ngày · ${st.late} mốc</span>` : ''}</div>
-    ${isCrew() ? '' : (() => { const due = [...dueStages(p.id).map(s => `đợt ${s.i + 1} · ${short(s.amount)}`), ...changeSummary(p.id).unpaid.map(c => `${c.no} · ${short(changeTotal(c))}`)]; return due.length ? `<div class="small mt warn">💰 Đến hạn thu: ${due.join(', ')}</div>` : ''; })()}
+    ${isCrew() ? '' : (() => { const due = [...dueStages(p.id).map(s => `${s.nm} · ${short(s.amount)}`), ...changeSummary(p.id).unpaid.map(c => `${c.no} · ${short(changeTotal(c))}`)]; return due.length ? `<div class="small mt warn">💰 Đến hạn thu: ${due.join(', ')}</div>` : ''; })()}
     ${(() => { const w = accWaiting(p.id); return w.length ? `<div class="small mt warn">📋 Chờ nghiệm thu: ${w.length} mốc (${esc(w[0].name)}${w.length > 1 ? '…' : ''})</div>` : ''; })()}</div>`;
 }
 function progressLinkLabel(p) { const l = tasksOf(p.id); return l.length ? `Tiến độ (${planStats(l).pct}%)` : 'Lập tiến độ'; }
@@ -179,28 +200,47 @@ function autoLink(label) {
   for (const [k, re] of PAY_RULES) { const m = re.exec(label || ''); if (m) return k === 'pct' ? 'pct:' + m[1] : k; }
   return '';
 }
-function payStages(pid) {
+// Nguồn lịch thanh toán: lịch lập riêng cho dự án (hợp đồng ký ngoài app) hoặc hợp đồng soạn trong app
+function paySrc(pid) {
+  const p = proj(pid);
+  if (p && p.pay && Array.isArray(p.pay.stages) && p.pay.stages.length) return { kind: 'project', pay: p.pay.stages, value: +p.pay.value || p.pay.stages.reduce((a, x) => a + (+x.amount || 0), 0), no: p.pay.no || '', date: p.pay.date || '' };
   const q = contractFor(pid);
-  if (!q) return null;
-  const list = tasksOf(pid), st = planStats(list), value = contractValue(q, q.ct).value, am = payAmounts(value, q.ct.pay);
-  const stages = q.ct.pay.map((x, i) => {
-    const link = x.link || autoLink(x.label);
+  return q ? { kind: 'quote', q, pay: q.ct.pay, value: contractValue(q, q.ct).value, no: q.ct.no || q.no, date: q.ct.date || '' } : null;
+}
+// "Đợt N" trong tên đợt ↔ mốc tiến độ có ghi chú "Mốc thanh toán Đợt N" (bảng tiến độ dán từ hợp đồng)
+function noteLink(label, list) {
+  const m = /Đợt\s*(\d+)/i.exec(label || '');
+  if (!m) return '';
+  const re = new RegExp(`Đợt\\s*${m[1]}(?!\\d)`, 'i'), t = list.find(x => re.test(x.note || ''));
+  return t ? t.id : '';
+}
+function payStages(pid) {
+  const src = paySrc(pid);
+  if (!src) return null;
+  const list = tasksOf(pid), st = planStats(list), value = src.value, calc = payAmounts(value, src.pay);
+  const am = src.pay.map((x, i) => (+x.amount > 0 ? +x.amount : calc[i]));
+  // Tên đợt: hợp đồng trong app đánh số "đợt N"; lịch tự lập lấy phần trước dấu " – " (VD "Ký hợp đồng", "Đợt 1")
+  const nameOf = (x, i) => { if (src.kind !== 'project') return [`đợt ${i + 1}`, x.label]; const [a, ...b] = String(x.label || '').split(/\s+[–-]\s+/); return [a || `Đợt ${i + 1}`, b.join(' – ')]; };
+  const stages = src.pay.map((x, i) => {
+    const [nm, title] = nameOf(x, i), cap = nm.charAt(0).toUpperCase() + nm.slice(1);
+    const link = x.link || noteLink(x.label, list) || autoLink(x.label);
+    if (link === 'manual') return { i, nm, cap, title, label: x.label, pct: +x.pct || 0, amount: am[i], link, task: null, when: 'thu khi đến hạn – bấm Đã thu khi nhận tiền', dueDate: '', paid: x.paid || null, state: x.paid ? 'paid' : 'manual' };
     let task = null, due = false, dueDate = '', when = '';
-    if (link === 'sign') { due = true; dueDate = q.ct.date || ''; when = 'khi ký hợp đồng'; }
+    if (link === 'sign') { due = true; dueDate = src.date; when = 'khi ký hợp đồng'; }
     else if (link.startsWith('pct:')) { const need = +link.slice(4); due = list.length > 0 && st.pct >= need; when = `khi đạt ${need}% tiến độ (hiện ${st.pct}%)`; }
     else if (link) {
       task = list.find(t => t.id === link) || list.find(t => t.pay === link) || null;
       if (task) { due = !!task.done; dueDate = task.doneDate || ''; when = `khi xong "${task.name}"`; }
     }
-    return { i, label: x.label, pct: +x.pct || 0, amount: am[i], link: task || link === 'sign' || link.startsWith('pct:') ? link : '', task, when, dueDate, paid: x.paid || null, state: x.paid ? 'paid' : due ? 'due' : 'wait' };
+    return { i, nm, cap, title, label: x.label, pct: +x.pct || 0, amount: am[i], link: task || link === 'sign' || link.startsWith('pct:') ? link : '', task, when, dueDate, paid: x.paid || null, state: x.paid ? 'paid' : due ? 'due' : 'wait' };
   });
-  return { q, value, stages };
+  return { ...src, value, stages };
 }
 const dueStages = pid => { const ps = payStages(pid); return ps ? ps.stages.filter(s => s.state === 'due') : []; };
 // Nhắc trên đầu trang Dự án: mọi đợt đến hạn thu chưa thu
 function dueBannerHTML() {
   const rows = S.projects.flatMap(p => [
-    ...dueStages(p.id).map(s => ({ p, text: `đợt ${s.i + 1} (${fmt(s.pct)}%) ${s.label}`, amount: s.amount })),
+    ...dueStages(p.id).map(s => ({ p, text: `${s.nm} (${fmt(s.pct)}%) ${s.title}`, amount: s.amount })),
     ...changeSummary(p.id).unpaid.map(c => ({ p, text: `phát sinh ${c.no} ${c.title || ''}`, amount: changeTotal(c) })),
   ]);
   if (!rows.length) return '';
@@ -209,18 +249,20 @@ function dueBannerHTML() {
 }
 function payCardHTML(pid, detailsOpen) {
   const ps = payStages(pid);
-  if (!ps) return `<div class="card mb small muted">💰 Chưa có hợp đồng thi công cho công trình này. Soạn hợp đồng từ báo giá hình thức <b>Nhân công</b> hoặc <b>Trọn gói thô</b> thì app sẽ nhắc thu tiền khi xong mốc.</div>`;
+  if (!ps) return `<div class="card mb small"><div class="row between wrap" style="gap:8px"><b>💰 Thanh toán theo tiến độ</b><button class="btn sm primary" type="button" id="paySetup">+ Lập lịch thanh toán</button></div>
+    <p class="muted mt">Chưa có lịch thanh toán. Nhập các đợt theo hợp đồng (dán từ bảng lịch thanh toán được) để app nhắc thu tiền khi xong mốc. Hợp đồng soạn từ báo giá <b>Nhân công</b> / <b>Trọn gói thô</b> trong app thì tự có lịch.</p></div>`;
   const list = tasksOf(pid), paid = ps.stages.filter(s => s.state === 'paid').reduce((a, s) => a + s.amount, 0);
-  const opts = s => [['', `Tự động${s.link ? '' : ' (chưa nhận ra)'}`], ['sign', 'Khi ký hợp đồng'], ['pct:50', 'Khi đạt 50% tiến độ'], ['pct:70', 'Khi đạt 70% tiến độ'], ...list.map(t => [t.id, `${t.group} › ${t.name}`])]
-    .map(([v, l]) => `<option value="${esc(v)}"${(ps.q.ct.pay[s.i].link || '') === v ? ' selected' : ''}>${esc(l)}</option>`).join('');
-  return `<div class="card mb pay-card"><div class="row between wrap" style="gap:6px"><b>💰 Thanh toán theo tiến độ</b><span class="small muted">HĐ ${esc(ps.q.ct.no || ps.q.no)} · ${short(ps.value)} · đã thu ${short(paid)}</span></div>
-    ${ps.stages.map(s => `<div class="pay-row ${s.state}"><div class="grow" style="min-width:0"><div><b>Đợt ${s.i + 1}</b> · ${fmt(s.pct)}% · ${esc(s.label)}</div>
+  const opts = s => [['', `Tự động${s.link ? '' : ' (chưa nhận ra)'}`], ['sign', 'Khi ký hợp đồng'], ['pct:50', 'Khi đạt 50% tiến độ'], ['pct:70', 'Khi đạt 70% tiến độ'], ['manual', 'Thu tay (bấm Đã thu khi nhận)'], ...list.map(t => [t.id, `${t.group} › ${t.name}`])]
+    .map(([v, l]) => `<option value="${esc(v)}"${(ps.pay[s.i].link || '') === v ? ' selected' : ''}>${esc(l)}</option>`).join('');
+  return `<div class="card mb pay-card"><div class="row between wrap" style="gap:6px"><b>💰 Thanh toán theo tiến độ</b><span class="small muted">${ps.no ? 'HĐ ' + esc(ps.no) + ' · ' : ''}${short(ps.value)} · đã thu ${short(paid)}${ps.kind === 'project' ? ' · <button class="linkbtn" type="button" id="paySetup">Sửa lịch</button>' : ''}</span></div>
+    ${ps.stages.map(s => `<div class="pay-row ${s.state}"><div class="grow" style="min-width:0"><div><b>${esc(s.cap)}</b> · ${fmt(s.pct)}%${s.title ? ' · ' + esc(s.title) : ''}</div>
       <div class="small ${s.state === 'due' ? 'warn' : 'muted'}">${s.state === 'paid' ? `✓ Đã thu ${fdate(s.paid.date)}`
         : s.state === 'due' ? `⚠ Đến hạn thu${s.task ? ` – đã xong "${esc(s.task.name)}"${s.dueDate ? ' ngày ' + ddmm(s.dueDate) : ''}` : ''}`
+        : s.state === 'manual' ? `Thu tay – bấm Đã thu khi nhận tiền`
         : s.link ? `Chưa đến – ${esc(s.when)}${s.task ? ` · dự kiến ${fdate(taskEnd(s.task))}` : ''}` : 'Chưa gắn mốc – chọn ở mục bên dưới'}</div></div>
-      <b class="num">${fmt(s.amount)}</b>${s.state === 'due' ? `<button class="btn sm primary" type="button" data-paid="${s.i}">Đã thu</button>` : s.state === 'paid' ? `<button class="linkbtn" type="button" data-unpaid="${s.i}">Bỏ</button>` : ''}</div>`).join('')}
+      <b class="num">${fmt(s.amount)}</b>${s.state === 'due' ? `<button class="btn sm primary" type="button" data-paid="${s.i}">Đã thu</button>` : s.state === 'manual' ? `<button class="btn sm" type="button" data-paid="${s.i}">Đã thu</button>` : s.state === 'paid' ? `<button class="linkbtn" type="button" data-unpaid="${s.i}">Bỏ</button>` : ''}</div>`).join('')}
     <details class="mt"${detailsOpen ? ' open' : ''}><summary class="small" data-pdet>Gắn đợt thanh toán với mốc tiến độ</summary>
-      ${ps.stages.map(s => `<div class="kvrow plink"><span class="small">Đợt ${s.i + 1} · ${esc(s.label)}</span><select data-plink="${s.i}" aria-label="Mốc cho đợt ${s.i + 1}">${opts(s)}</select></div>`).join('')}
+      ${ps.stages.map(s => `<div class="kvrow plink"><span class="small">${esc(s.cap)}${s.title ? ' · ' + esc(s.title) : ''}</span><select data-plink="${s.i}" aria-label="Mốc cho ${esc(s.nm)}">${opts(s)}</select></div>`).join('')}
     </details>${(() => { const cs = changeSummary(pid); return cs.list.length ? `<div class="row between wrap small mt tap" data-gotab="chg" style="gap:6px"><span>➕ Phát sinh đã duyệt: <b>${cs.approved > 0 ? '+' : ''}${fmt(cs.approved)}</b>${cs.pending ? ` · ${cs.pending} phiếu chờ duyệt` : ''}</span>${cs.unpaid.length ? `<span class="warn">Chưa thu ${short(cs.unpaid.reduce((a, c) => a + changeTotal(c), 0))}</span>` : ''}</div>` : ''; })()}</div>`;
 }
 
@@ -257,7 +299,7 @@ function chartHTML(pid, list, show, width) {
     const status = s === 'done' ? `✓ Xong ${fdate(t.doneDate)}${late > 0 ? ` – trễ ${late} ngày` : late < 0 ? ` – sớm ${-late} ngày` : ' – đúng hạn'}`
       : s === 'late' ? `⚠ Trễ ${late} ngày (chưa xong)` : s === 'doing' ? 'Đang làm' : 'Chưa tới';
     const pay = pays[t.id];
-    const tip = `${t.name}\nKế hoạch: ${fdate(t.start)} – ${fdate(taskEnd(t))} (${taskDays(t)} ngày)\n${status}${pay ? `\n💰 Đợt ${pay.i + 1}: ${fmt(pay.amount)} đ${pay.state === 'paid' ? ' (đã thu)' : pay.state === 'due' ? ' (đến hạn thu)' : ''}` : ''}`;
+    const tip = `${t.name}\nKế hoạch: ${fdate(t.start)} – ${fdate(taskEnd(t))} (${taskDays(t)} ngày)\n${status}${pay ? `\n💰 ${pay.cap}: ${fmt(pay.amount)} đ${pay.state === 'paid' ? ' (đã thu)' : pay.state === 'due' ? ' (đến hạn thu)' : ''}` : ''}`;
     const act = s === 'done' ? bar(t.doneDate < t.start ? t.doneDate : t.start, t.doneDate, 'done', '✓') : (s === 'doing' || s === 'late') ? bar(t.start, td, s, s === 'late' ? '⚠' : '') : '';
     const pe = x(addDays(taskEnd(t), 1));
     html += `<div class="gt-row" data-edit="${t.id}" data-tip="${esc(tip)}"><div class="gt-name" style="width:${NAME}px">${t.ps ? '➕ ' : ''}${esc(t.name)}</div><div class="gt-track" style="width:${W}px"><i class="gt-plan" style="left:${x(t.start)}px;width:${Math.max(ppd, pe - x(t.start))}px"></i>${act}${pay ? `<b class="gt-pay" style="left:${Math.max(pe, act ? x(addDays(s === 'done' ? t.doneDate : td, 1)) + 16 : pe) + 4}px">💰</b>` : ''}</div></div>`;
@@ -480,6 +522,7 @@ function openProgress(pid) {
     if (crew) { $p('#pgFoot').innerHTML = '<p class="small muted">Bấm ô tròn để đánh dấu xong (kèm ảnh) · bấm tên mốc để thêm ảnh, ghi chú</p>'; return; }
     $p('#pgFoot').innerHTML = `<button class="btn" type="button" id="pgAdd">+ Thêm mốc</button><button class="btn" type="button" id="pgShift">Dời kế hoạch</button><button class="btn danger" type="button" id="pgReset">Xóa kế hoạch</button>`;
     $p('#pgAdd').onclick = () => drawEdit(null);
+    if ($p('#paySetup')) $p('#paySetup').onclick = drawPaySetup;
     $p('#pgRedo').onclick = () => { replacing = true; setupSrc = null; draw(); $p('#pgBody').scrollTop = 0; };
     $p('#pgShift').onclick = () => {
       const v = prompt('Dời tất cả các mốc CHƯA XONG thêm bao nhiêu ngày?\n(Nhập số âm để kéo sớm lại, VD: 5 hoặc -3)', '3');
@@ -510,7 +553,7 @@ function openProgress(pid) {
     commit(); draw();
     // Xong mốc gắn đợt thanh toán → nhắc thu tiền
     const newDue = dueStages(pid).filter(s => !dueBefore.has(s.i));
-    toast(newDue.length ? `💰 Đến hạn thu đợt ${newDue.map(s => `${s.i + 1}: ${money(s.amount)}`).join(', ')} — bấm "Đã thu" khi nhận tiền` : list.length > 1 ? `Đã xong ${list.length} mốc` : 'Đã đánh dấu xong');
+    toast(newDue.length ? `💰 Đến hạn thu ${newDue.map(s => `${s.nm}: ${money(s.amount)}`).join(', ')} — bấm "Đã thu" khi nhận tiền` : list.length > 1 ? `Đã xong ${list.length} mốc` : 'Đã đánh dấu xong');
     // Mốc cần nghiệm thu công việc khuất: mở ngay phiếu nghiệm thu
     if (list.length === 1 && accState(last) === 'wait') { if (crew) toast('Đã xong — mốc này cần chủ thầu nghiệm thu'); else drawAcc(last.id, true); }
   };
@@ -604,7 +647,73 @@ function openProgress(pid) {
       }
       commit(); tab = 'acc'; draw();
       const newDue = dueStages(pid).filter(s => !dueBefore.has(s.i));
-      toast(a.result === 'pass' ? `Đã nghiệm thu đạt ${accCode(a.no)}${newDue.length ? ` · 💰 Đến hạn thu đợt ${newDue.map(s => s.i + 1).join(', ')}` : ''}` : `Đã lưu ${accCode(a.no)}: không đạt, chờ sửa`);
+      toast(a.result === 'pass' ? `Đã nghiệm thu đạt ${accCode(a.no)}${newDue.length ? ` · 💰 Đến hạn thu ${newDue.map(s => s.nm).join(', ')}` : ''}` : `Đã lưu ${accCode(a.no)}: không đạt, chờ sửa`);
+    };
+  };
+
+  // ---- Lịch thanh toán cho hợp đồng ký ngoài app (lưu trong dự án) ----
+  const drawPaySetup = () => {
+    const cur = p.pay ? JSON.parse(JSON.stringify(p.pay)) : { no: '', date: '', value: 0, stages: [] };
+    if (!cur.stages.length) cur.stages = [{ label: 'Ký hợp đồng – Tạm ứng', pct: 15, amount: 0 }];
+    const sumLine = () => {
+      const pct = cur.stages.reduce((a, x) => a + (+x.pct || 0), 0), calc = payAmounts(+cur.value || 0, cur.stages);
+      const tot = cur.stages.reduce((a, x, i) => a + (+x.amount > 0 ? +x.amount : calc[i]), 0);
+      $p('#psSum').innerHTML = `Tổng: <b>${fmt(pct)}%</b> · <b>${fmt(tot)}</b> đ${+cur.value && Math.abs(tot - cur.value) > 1 ? ` <span class="neg">(lệch ${fmt(tot - cur.value)} đ so với giá trị hợp đồng)</span>` : ''}${Math.abs(pct - 100) > 1e-9 ? ' <span class="neg">— tỷ lệ chưa đủ 100%</span>' : ''}`;
+    };
+    const drawRows = () => {
+      const calc = payAmounts(+cur.value || 0, cur.stages);
+      $p('#psRows').innerHTML = cur.stages.map((x, i) => `<div class="ps-row" data-i="${i}">
+          <input data-k="label" value="${esc(x.label)}" placeholder="VD: Đợt 1 – Hoàn thành tháo dỡ" aria-label="Tên / điều kiện đợt ${i + 1}">
+          <input data-k="pct" inputmode="decimal" class="right" value="${x.pct ?? ''}" aria-label="Tỷ lệ"><span class="small muted">%</span>
+          <input data-k="amount" data-money inputmode="numeric" class="right" value="${+x.amount ? fmt(x.amount) : ''}" placeholder="${fmt(calc[i] || 0)}" aria-label="Số tiền">
+          <button type="button" class="del" data-rm="${i}" aria-label="Xóa đợt">×</button>${x.paid ? '<span class="small pos ps-paid">✓ đã thu</span>' : ''}</div>`).join('');
+      sumLine();
+    };
+    $p('#pgBody').innerHTML = `<p class="small muted mb">Dùng cho hợp đồng ký ngoài app. Tên đợt ghi dạng “<b>Đợt 1 – điều kiện</b>”: app tự gắn với mốc tiến độ có ghi chú “Mốc thanh toán Đợt 1”; “Ký hợp đồng” đến hạn ngay; đợt <b>bảo hành</b> để thu tay. Gắn lại mốc được ở thẻ Thanh toán.</p>
+      <div class="fields">
+        <div><label for="psNo">Số hợp đồng</label><input id="psNo" value="${esc(cur.no)}"></div>
+        <div><label for="psDate">Ngày ký</label><input type="date" id="psDate" value="${esc(cur.date)}"></div>
+        <div class="full"><label for="psVal">Giá trị hợp đồng (đã gồm VAT nếu có)</label><input id="psVal" data-money inputmode="numeric" class="right" value="${+cur.value ? fmt(cur.value) : ''}"></div>
+        <div class="full"><details${p.pay ? '' : ' open'}><summary class="small bold">Dán lịch thanh toán từ hợp đồng</summary>
+          <p class="small muted mt">Mỗi dòng một đợt: <b>Tên đợt – điều kiện | tỷ lệ % | số tiền</b> (số tiền bỏ trống thì tính theo %).</p>
+          <textarea id="psPaste" rows="5" placeholder="Ký hợp đồng – Tạm ứng | 15% | 384.192.282&#10;Đợt 1 – Hoàn thành tháo dỡ | 10% | 256.128.188"></textarea>
+          <button class="btn sm mt" type="button" id="psParse">Điền vào bảng bên dưới</button></details></div>
+      </div>
+      <div class="bold small mt mb">Các đợt thanh toán</div><div id="psRows"></div>
+      <button class="linkbtn" type="button" id="psAdd">+ Thêm đợt</button><p class="small mt" id="psSum"></p>`;
+    drawRows();
+    $p('#pgBody').oninput = e => {
+      const t = e.target, r = t.closest('.ps-row');
+      if (t.id === 'psVal') { cur.value = num(t.value); drawRowsKeep(); }
+      else if (r) { const x = cur.stages[+r.dataset.i]; x[t.dataset.k] = t.dataset.k === 'amount' ? num(t.value) : t.dataset.k === 'pct' ? dec(t.value) : t.value; if (t.dataset.k !== 'label') drawRowsKeep(); }
+    };
+    // Cập nhật số tiền gợi ý mà không vẽ lại ô đang gõ
+    const drawRowsKeep = () => { const calc = payAmounts(+cur.value || 0, cur.stages); $p('#psRows').querySelectorAll('.ps-row').forEach((r, i) => { r.querySelector('[data-k=amount]').placeholder = fmt(calc[i] || 0); }); sumLine(); };
+    $p('#pgBody').onclick = e => {
+      const t = e.target;
+      if (t.dataset.rm !== undefined) { if (cur.stages[+t.dataset.rm].paid && !confirm('Đợt này đã thu. Vẫn xóa? (Khoản thu trong Chi phí giữ nguyên)')) return; cur.stages.splice(+t.dataset.rm, 1); drawRows(); }
+      else if (t.id === 'psAdd') { cur.stages.push({ label: `Đợt ${cur.stages.length} – `, pct: 0, amount: 0 }); drawRows(); }
+      else if (t.id === 'psParse') {
+        const rows = parsePayText($p('#psPaste').value);
+        if (!rows.length) return toast('Không đọc được đợt nào');
+        // Giữ trạng thái đã thu của đợt trùng tên
+        rows.forEach(r => { const o = cur.stages.find(x => x.label.split(/\s+[–-]\s+/)[0] === r.label.split(/\s+[–-]\s+/)[0]); if (o) { if (o.paid) r.paid = o.paid; if (o.link && !r.link) r.link = o.link; } });
+        cur.stages = rows;
+        if (!+cur.value) { cur.value = rows.reduce((a, x) => a + (+x.amount || 0), 0); $p('#psVal').value = cur.value ? fmt(cur.value) : ''; }
+        drawRows(); toast(`Đã điền ${rows.length} đợt`);
+      }
+    };
+    $p('#pgFoot').innerHTML = `<button class="btn" type="button" id="psBack">← Tiến độ</button>${p.pay ? '<button class="btn danger" type="button" id="psDel">Xóa lịch</button>' : ''}<button class="btn primary" type="button" id="psSave">Lưu lịch thanh toán</button>`;
+    $p('#psBack').onclick = () => draw();
+    if (p.pay) $p('#psDel').onclick = () => { if (!confirm('Xóa lịch thanh toán của dự án? (Các khoản đã thu trong Chi phí giữ nguyên)')) return; delete p.pay; commit(); toast('Đã xóa lịch thanh toán'); draw(); };
+    $p('#psSave').onclick = () => {
+      cur.no = $p('#psNo').value.trim(); cur.date = $p('#psDate').value; cur.value = num($p('#psVal').value);
+      cur.stages = cur.stages.filter(x => String(x.label || '').trim() && (+x.pct || +x.amount)).map(x => ({ ...x, label: x.label.trim(), pct: +x.pct || 0, amount: +x.amount || 0 }));
+      if (!cur.stages.length) return toast('Nhập ít nhất một đợt có tỷ lệ hoặc số tiền');
+      if (!cur.value && cur.stages.some(x => !x.amount)) return toast('Nhập giá trị hợp đồng để tính số tiền theo %');
+      p.pay = cur;
+      if (!+p.contract && cur.value) p.contract = cur.value; // thẻ dự án dùng giá trị hợp đồng này
+      commit(); toast(`Đã lưu lịch thanh toán ${cur.stages.length} đợt`); draw();
     };
   };
 
@@ -872,16 +981,16 @@ function openProgress(pid) {
   };
   // Đã thu / bỏ đã thu: ghi hoặc xóa khoản thu bên Chi phí
   const setPaid = (i, on) => {
-    const ps = payStages(pid), s = ps && ps.stages[i], x = ps && ps.q.ct.pay[i];
+    const ps = payStages(pid), s = ps && ps.stages[i], x = ps && ps.pay[i];
     if (!s) return;
     if (on) {
-      if (!confirm(`Ghi nhận đã thu đợt ${i + 1}: ${money(s.amount)}?\nKhoản thu sẽ được ghi vào mục Chi phí.`)) return;
+      if (!confirm(`Ghi nhận đã thu ${s.nm}: ${money(s.amount)}?\nKhoản thu sẽ được ghi vào mục Chi phí.`)) return;
       const costId = uid();
-      S.costs.push({ id: costId, projectId: pid, date: today(), type: 'thu', cat: '', amount: s.amount, desc: `Thu đợt ${i + 1} (${fmt(s.pct)}%) – ${s.label}`, vendor: '' });
+      S.costs.push({ id: costId, projectId: pid, date: today(), type: 'thu', cat: '', amount: s.amount, desc: `Thu ${s.nm} (${fmt(s.pct)}%)${s.title ? ' – ' + s.title : ''}`, vendor: '' });
       x.paid = { date: today(), costId };
       commit(); toast(`Đã ghi khoản thu ${money(s.amount)}`);
     } else {
-      if (!confirm(`Bỏ đánh dấu đã thu đợt ${i + 1}? Khoản thu đã ghi trong Chi phí cũng bị xóa.`)) return;
+      if (!confirm(`Bỏ đánh dấu đã thu ${s.nm}? Khoản thu đã ghi trong Chi phí cũng bị xóa.`)) return;
       S.costs = S.costs.filter(c => c.id !== x.paid.costId);
       delete x.paid;
       commit();
@@ -891,8 +1000,8 @@ function openProgress(pid) {
   el.addEventListener('change', e => {
     const i = e.target.dataset.plink;
     if (i === undefined) return;
-    const q = contractFor(pid);
-    if (e.target.value) q.ct.pay[+i].link = e.target.value; else delete q.ct.pay[+i].link;
+    const src = paySrc(pid);
+    if (e.target.value) src.pay[+i].link = e.target.value; else delete src.pay[+i].link;
     commit(); draw();
   });
   // Gợi ý khi rê chuột lên biểu đồ
