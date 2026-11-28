@@ -107,6 +107,7 @@ Object.assign(ACT, {
       // Tạo tài khoản bằng một kết nối riêng để không đăng xuất chủ thầu
       const c = Sync.config(), tmp = supabase.createClient(c.url, c.key, { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false, storageKey: 'qlxd-tmp' } });
       const { data, error } = await tmp.auth.signUp({ email, password: pass });
+      if (error && /signups? not allowed/i.test(error.message)) throw new Error('Supabase đang tắt đăng ký mới — bật Authentication → Sign In / Providers → Allow new users to sign up rồi tạo lại');
       if (error && !/already|registered|exists/i.test(error.message)) throw error;
       if (error) note = ' (email đã có tài khoản — dùng mật khẩu cũ của tài khoản đó)';
       else if (data && data.user && !data.session) note = ' — đội thợ cần bấm link xác nhận trong email trước khi đăng nhập';

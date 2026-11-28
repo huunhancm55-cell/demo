@@ -328,7 +328,9 @@ const Gate = {
     await Promise.race([Sync.ready(), new Promise(r => setTimeout(r, 9000))]);
     this.update();
     if (code && !Sync.signedIn()) {
-      $('#gErr').textContent = /otp_expired/.test(code) ? 'Link trong email đã hết hạn hoặc đã dùng rồi — gửi lại email mới.' : /access_denied/.test(code) ? 'Đăng nhập bị hủy hoặc bị từ chối.' : 'Đăng nhập không thành công: ' + (h.get('error_description') || code);
+      const desc = h.get('error_description') || '';
+      $('#gErr').textContent = /signups? not allowed/i.test(desc) ? 'Tài khoản Google này chưa có trên hệ thống và Supabase đang tắt đăng ký mới. Chủ thầu bật: Supabase → Authentication → Sign In / Providers → Allow new users to sign up.'
+        : /otp_expired/.test(code) ? 'Link trong email đã hết hạn hoặc đã dùng rồi — gửi lại email mới.' : /access_denied/.test(code) ? 'Đăng nhập bị hủy hoặc bị từ chối.' : 'Đăng nhập không thành công: ' + (desc || code);
       history.replaceState(null, '', location.pathname + location.search);
     }
   },
