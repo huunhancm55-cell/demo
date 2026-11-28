@@ -279,18 +279,56 @@ const Gate = {
     const g = $('#gate');
     g.hidden = false; document.body.classList.add('gated');
     g.querySelector('.g-load').hidden = mode !== 'loading';
-    $('#gForm').hidden = mode !== 'login';
+    $('#gLogin').hidden = mode !== 'login';
     $('#gNew').hidden = mode !== 'recover';
     $('.g-sub').textContent = mode === 'recover' ? 'Đặt mật khẩu mới cho tài khoản' : 'Đăng nhập để tiếp tục';
+    if (mode === 'login') this.drawAccts();
     if (mode === 'recover') setTimeout(() => $('#gNewPass').focus(), 50);
-    if (mode === 'login') setTimeout(() => { const e = $('#gEmail'); if (e && !e.value) e.focus(); }, 50);
   },
-  hide() { const g = $('#gate'); if (!g.hidden) { g.hidden = true; document.body.classList.remove('gated'); render(); } },
+  // ---- Tài khoản đã đăng nhập trên máy này (như "Tiếp tục với tên bạn" của mạng xã hội) ----
+  accts() { try { return JSON.parse(localStorage.getItem('qlxd-accounts') || '[]'); } catch (e) { return []; } },
+  saveAccts(a) { try { localStorage.setItem('qlxd-accounts', JSON.stringify(a.slice(0, 5))); } catch (e) { /* bỏ qua */ } },
+  remember() {
+    const u = window.Sync && Sync.userInfo();
+    if (!u || !u.email) return;
+    let method = null;
+    try { method = localStorage.getItem('qlxd-login-method'); } catch (e) { /* bỏ qua */ }
+    const old = this.accts(), prev = old.find(a => a.email === u.email) || {};
+    const a = { email: u.email, name: u.name || prev.name || '', avatar: u.avatar || prev.avatar || '', method: method || prev.method || 'password', at: Date.now() };
+    this.saveAccts([a, ...old.filter(x => x.email !== u.email)]);
+  },
+  other: false,
+  drawAccts() {
+    const list = this.accts(), box = $('#gAccts');
+    const ini = a => esc(((a.name || a.email).trim().split(/\s+/).pop() || '?').charAt(0).toUpperCase());
+    box.innerHTML = list.length ? `<div class="g-accts">${list.map((a, i) => `<div class="g-acct" role="button" tabindex="0" data-gacct="${i}">
+        ${a.avatar ? `<img src="${esc(a.avatar)}" alt="" referrerpolicy="no-referrer">` : `<span class="g-av">${ini(a)}</span>`}
+        <span class="grow"><b>${esc(a.name || a.email.split('@')[0])}</b><small>${esc(a.email)}${a.method === 'google' ? ' · Google' : ''}</small></span>
+        <button type="button" class="g-x" data-gdel="${i}" aria-label="Gỡ tài khoản khỏi máy này">×</button></div>`).join('')}</div>
+      <button type="button" class="linkbtn g-sw" id="gSwitch">${this.other ? '▲ Ẩn đăng nhập tài khoản khác' : '+ Đăng nhập bằng tài khoản khác'}</button>` : '';
+    $('#gOther').hidden = list.length > 0 && !this.other;
+    $('.g-sub').textContent = list.length && !this.other ? 'Chọn tài khoản để tiếp tục' : 'Đăng nhập để tiếp tục';
+    if (!list.length || this.other) setTimeout(() => { const e = $('#gEmail'); if (e && !e.value) e.focus(); }, 50);
+  },
+  hide() {
+    if (window.Sync && Sync.signedIn()) {
+      this.remember(); setTimeout(() => this.remember(), 5000); // tên trong danh sách thành viên có sau lần đồng bộ đầu
+      try { localStorage.removeItem('qlxd-login-method'); } catch (e) { /* bỏ qua */ }
+      if (/access_token|refresh_token|error_description/.test(location.hash)) history.replaceState(null, '', location.pathname + location.search);
+    }
+    const g = $('#gate'); if (!g.hidden) { g.hidden = true; document.body.classList.remove('gated'); render(); }
+  },
   async start() {
     if (!this.on()) return this.hide();
+    // Quay về từ Google / link email bị lỗi (VD link hết hạn): báo lỗi bằng tiếng Việt
+    const h = new URLSearchParams(location.hash.slice(1)), code = h.get('error_code') || h.get('error');
     this.show('loading');
     await Promise.race([Sync.ready(), new Promise(r => setTimeout(r, 9000))]);
     this.update();
+    if (code && !Sync.signedIn()) {
+      $('#gErr').textContent = /otp_expired/.test(code) ? 'Link trong email đã hết hạn hoặc đã dùng rồi — gửi lại email mới.' : /access_denied/.test(code) ? 'Đăng nhập bị hủy hoặc bị từ chối.' : 'Đăng nhập không thành công: ' + (h.get('error_description') || code);
+      history.replaceState(null, '', location.pathname + location.search);
+    }
   },
   update() {
     if (this.recovering && window.Sync && Sync.signedIn()) return this.show('recover');
@@ -300,6 +338,30 @@ const Gate = {
   },
 };
 window.Gate = Gate;
+document.addEventListener('click', async e => {
+  const t = e.target, err = $('#gErr');
+  if (!t.closest || !t.closest('#gate')) return;
+  const del = t.closest('[data-gdel]');
+  if (del) { const a = Gate.accts(); a.splice(+del.dataset.gdel, 1); Gate.saveAccts(a); if (!a.length) Gate.other = false; return Gate.drawAccts(); }
+  if (t.id === 'gSwitch') { Gate.other = !Gate.other; return Gate.drawAccts(); }
+  if (t.closest('#gEye')) { const p = $('#gPass'), show = p.type === 'password'; p.type = show ? 'text' : 'password'; $('#gEye').setAttribute('aria-pressed', show); $('#gEye').setAttribute('aria-label', show ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'); $('#gEye').classList.toggle('on', show); return; }
+  const acct = t.closest('[data-gacct]'), google = t.closest('#gGoogle');
+  if (acct || google) {
+    const a = acct ? Gate.accts()[+acct.dataset.gacct] : null;
+    if (a && a.method !== 'google') {
+      // Tài khoản email: điền sẵn email, chỉ cần gõ mật khẩu
+      Gate.other = true; Gate.drawAccts(); $('#gEmail').value = a.email; $('#gPass').value = ''; err.textContent = '';
+      return setTimeout(() => $('#gPass').focus(), 60);
+    }
+    err.textContent = '';
+    (acct || google).classList.add('busy');
+    try { localStorage.setItem('qlxd-login-method', 'google'); } catch (x) { /* bỏ qua */ }
+    const msg = await Sync.loginGoogle(a ? a.email : '');
+    (acct || google).classList.remove('busy');
+    if (msg) { err.textContent = msg; try { localStorage.removeItem('qlxd-login-method'); } catch (x) { /* bỏ qua */ } }
+  }
+});
+document.addEventListener('keydown', e => { if ((e.key === 'Enter' || e.key === ' ') && e.target.matches && e.target.matches('[data-gacct]')) { e.preventDefault(); e.target.click(); } });
 document.addEventListener('click', async e => {
   if (e.target.id !== 'gForgot') return;
   const err = $('#gErr'), email = $('#gEmail').value.trim();
@@ -330,6 +392,7 @@ document.addEventListener('submit', async e => {
   e.preventDefault();
   const btn = $('button[type=submit]', e.target), err = $('#gErr');
   btn.disabled = true; btn.textContent = 'Đang đăng nhập…'; err.textContent = '';
+  try { localStorage.setItem('qlxd-login-method', 'password'); } catch (x) { /* bỏ qua */ }
   const msg = await Sync.login($('#gEmail').value, $('#gPass').value);
   btn.disabled = false; btn.textContent = 'Đăng nhập';
   if (msg) { err.textContent = msg; return; }

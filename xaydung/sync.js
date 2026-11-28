@@ -198,6 +198,7 @@ const Sync = (() => {
     running = true; setStatus('busy');
     try {
       await loadMe();
+      if (window.Gate && st.me?.name) Gate.remember(); // cập nhật tên hiện trên màn hình đăng nhập
       if (st.me?.role === 'none') throw Object.assign(new Error('not member'), { code: '42501' });
       const first = !st.cursor && !Object.keys(st.synced).length;
       let changed = false;
@@ -327,6 +328,18 @@ const Sync = (() => {
       return error ? (/different/i.test(error.message) ? 'Mật khẩu mới phải khác mật khẩu cũ' : errMsg(error)) : '';
     } catch (err) { return errMsg(err); }
   }
+  // Đăng nhập bằng Google: chuyển sang trang Google rồi quay về app
+  async function loginGoogle(hint) {
+    if (!sb) { await connect(); if (!sb) return lastError || 'Không kết nối được máy chủ'; }
+    try {
+      // Hỏi máy chủ đã bật Google chưa (nếu chưa, chuyển trang sẽ ra trang lỗi khó hiểu)
+      const c = cfg(), r = await fetch(`${c.url}/auth/v1/settings`, { headers: { apikey: c.key } }).then(x => (x.ok ? x.json() : null)).catch(() => null);
+      if (r && r.external && !r.external.google) return 'Chưa bật đăng nhập Google trên Supabase (Authentication → Sign In / Providers → Google)';
+      const { error } = await sb.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: location.href.split('#')[0].split('?')[0], queryParams: hint ? { login_hint: hint } : { prompt: 'select_account' } } });
+      if (error) return /not enabled|unsupported provider/i.test(error.message) ? 'Chưa bật đăng nhập Google trên Supabase (Authentication → Sign In / Providers → Google)' : errMsg(error);
+      return '';
+    } catch (err) { return errMsg(err); }
+  }
   async function login(email, password) {
     if (!sb) { await connect(); if (!sb) return lastError || 'Không kết nối được máy chủ'; }
     try {
@@ -418,7 +431,13 @@ const Sync = (() => {
   });
 
   return {
-    init, card, fetchPhoto, fetchFile, login, resetPassword, setPassword,
+    init, card, fetchPhoto, fetchFile, login, loginGoogle, resetPassword, setPassword,
+    // Thông tin hiện trên màn hình đăng nhập (tài khoản đã dùng trên máy)
+    userInfo() {
+      if (!user) return null;
+      const m = user.user_metadata || {};
+      return { email: user.email || '', name: st.me?.name || m.full_name || m.name || '', avatar: m.avatar_url || m.picture || '' };
+    },
     ready: () => ready,
     isConfigured: () => configured(),
     knownUser: () => !!st.uid,
